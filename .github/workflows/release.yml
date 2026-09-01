@@ -66,7 +66,33 @@ jobs:
       - name: Verify release vector and authority
         run: |
           set -euo pipefail
-          jq -e '.cycle.decision == "CLOSED" and .cycle.vector == {total:12,closed:4,unknown:4,refuted:4} and .live_v050.decision == "UNKNOWN" and .runtime_authority.repository_writes == 0 and .runtime_authority.remote_writes == 0 and .cycle.runtime_local_validation_commands == 0 and .artifacts.required_output_count == 8 and .artifacts.generated_count == 8 and .historical_failures_preserved == true' "$EVIDENCE_DIR/ci-evidence.json" >/dev/null
+          jq -e '
+            .cycle.decision == "CLOSED" and
+            .cycle.vector == {total:12,closed:4,unknown:4,refuted:4} and
+            (.cycle.invariants | length) == 12 and
+            ([.cycle.proofs[] | select(.choice == "FOUNDATION" and .total == 4)] | length) == 1 and
+            ([.cycle.proofs[] | select(.choice == "COHERENCE" and .total == 4)] | length) == 1 and
+            ([.cycle.proofs[] | select(.choice == "REGRESSION" and .total == 4)] | length) == 1 and
+            ([.cycle.indicator_classes[] | select(.class == "DRIVER" and .total == 4)] | length) == 1 and
+            ([.cycle.indicator_classes[] | select(.class == "OUTCOME" and .total == 4)] | length) == 1 and
+            ([.cycle.indicator_classes[] | select(.class == "GUARDRAIL" and .total == 4)] | length) == 1 and
+            .live_v050.decision == "UNKNOWN" and
+            .live_v050.claim.unknown_class == "HUMAN_EXTERNAL_EVIDENCE_REQUIRED" and
+            (.live_v050.invariants | length) == 12 and
+            .invariant_count == 12 and
+            ([.proofs[] | select(.choice == "FOUNDATION" and .total == 4)] | length) == 1 and
+            ([.proofs[] | select(.choice == "COHERENCE" and .total == 4)] | length) == 1 and
+            ([.proofs[] | select(.choice == "REGRESSION" and .total == 4)] | length) == 1 and
+            ([.indicator_classes[] | select(.class == "DRIVER" and .total == 4)] | length) == 1 and
+            ([.indicator_classes[] | select(.class == "OUTCOME" and .total == 4)] | length) == 1 and
+            ([.indicator_classes[] | select(.class == "GUARDRAIL" and .total == 4)] | length) == 1 and
+            .runtime_authority.repository_writes == 0 and
+            .runtime_authority.remote_writes == 0 and
+            .cycle.runtime_local_validation_commands == 0 and
+            .artifacts.required_output_count == 8 and
+            .artifacts.generated_count == 8 and
+            .historical_failures_preserved == true
+          ' "$EVIDENCE_DIR/ci-evidence.json" >/dev/null
       - name: Publish release report to job summary
         run: cat "$EVIDENCE_DIR/human-report.md" >> "$GITHUB_STEP_SUMMARY"
       - name: Package immutable evidence asset

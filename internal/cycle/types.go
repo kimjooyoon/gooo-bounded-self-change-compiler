@@ -72,6 +72,19 @@ type CanonicalCase struct {
 	SemanticEdge  string   `json:"semantic_edge"`
 	DependsOn     []string `json:"depends_on"`
 	Reason        string   `json:"reason"`
+	ProofChoice   string   `json:"proof_choice"`
+	IndicatorClass string  `json:"indicator_class"`
+}
+
+type InvariantDecl struct {
+	Ordinal        int      `json:"ordinal"`
+	ID             string   `json:"id"`
+	Activity       string   `json:"activity"`
+	Stage          string   `json:"stage"`
+	Step           string   `json:"step"`
+	ProofChoice    string   `json:"proof_choice"`
+	IndicatorClass string   `json:"indicator_class"`
+	DependsOn      []string `json:"depends_on"`
 }
 
 type ToolLock struct {
@@ -107,6 +120,7 @@ type MetaDecl struct {
 	Edges         []EdgeDecl      `json:"causal_edges"`
 	Tests         []TestImpactDecl `json:"semantic_tests"`
 	Cases         []CanonicalCase `json:"canonical_cases"`
+	Invariants    []InvariantDecl `json:"invariants"`
 	Tools         []ToolLock      `json:"released_tools"`
 	MetaDigest    string          `json:"meta_digest"`
 }
@@ -144,10 +158,14 @@ type Contract struct {
 	ID          string          `json:"id"`
 	Version     string          `json:"version"`
 	CaseCount   int             `json:"case_count"`
+	InvariantCount int          `json:"invariant_count"`
 	Fixed       bool            `json:"fixed"`
 	Denominator map[string]int  `json:"denominator"`
+	ProofTotals map[string]int  `json:"proof_totals"`
+	IndicatorTotals map[string]int `json:"indicator_totals"`
 	RequiredOutputs []string    `json:"required_outputs"`
 	Cases       []CanonicalCase `json:"cases"`
+	Invariants  []InvariantDecl `json:"invariants"`
 	Tools       []ToolLock      `json:"tools"`
 	LiveLedger  ToolLock        `json:"live_ledger"`
 }
@@ -178,6 +196,7 @@ type SemanticIR struct {
 	Edges             []EdgeDecl      `json:"causal_edges"`
 	Tests             []TestImpactDecl `json:"semantic_tests"`
 	Cases             []CanonicalCase `json:"canonical_cases"`
+	Invariants        []InvariantDecl `json:"invariants"`
 	Tools             []ToolLock      `json:"released_tools"`
 	Authority         Authority       `json:"authority"`
 	IRDigest          string          `json:"ir_digest"`
@@ -279,6 +298,21 @@ type CaseResult struct {
 	Fixture       string   `json:"fixture"`
 	SemanticEdge  string   `json:"semantic_edge"`
 	Claim         Claim    `json:"claim"`
+	ProofChoice   string   `json:"proof_choice"`
+	IndicatorClass string  `json:"indicator_class"`
+}
+
+type InvariantResult struct {
+	Ordinal        int      `json:"ordinal"`
+	ID             string   `json:"id"`
+	Activity       string   `json:"activity"`
+	Stage          string   `json:"stage"`
+	Step           string   `json:"step"`
+	ProofChoice    string   `json:"proof_choice"`
+	IndicatorClass string   `json:"indicator_class"`
+	DependsOn      []string `json:"depends_on"`
+	State          string   `json:"state"`
+	Claim          Claim   `json:"claim"`
 }
 
 type Vector struct {

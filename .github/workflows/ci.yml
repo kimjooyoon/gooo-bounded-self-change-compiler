@@ -63,10 +63,25 @@ jobs:
         run: |
           set -euo pipefail
           jq -e '
-            .cycle.decision == "CLOSED" and
-            .cycle.vector == {total:12,closed:4,unknown:4,refuted:4} and
-            .live_v050.decision == "UNKNOWN" and
-            .live_v050.claim.unknown_class == "HUMAN_EXTERNAL_EVIDENCE_REQUIRED" and
+          .cycle.decision == "CLOSED" and
+          .cycle.vector == {total:12,closed:4,unknown:4,refuted:4} and
+          (.cycle.invariants | length) == 12 and
+          ([.cycle.proofs[] | select(.choice == "FOUNDATION" and .total == 4)] | length) == 1 and
+          ([.cycle.proofs[] | select(.choice == "COHERENCE" and .total == 4)] | length) == 1 and
+          ([.cycle.proofs[] | select(.choice == "REGRESSION" and .total == 4)] | length) == 1 and
+          ([.cycle.indicator_classes[] | select(.class == "DRIVER" and .total == 4)] | length) == 1 and
+          ([.cycle.indicator_classes[] | select(.class == "OUTCOME" and .total == 4)] | length) == 1 and
+          ([.cycle.indicator_classes[] | select(.class == "GUARDRAIL" and .total == 4)] | length) == 1 and
+          .live_v050.decision == "UNKNOWN" and
+          .live_v050.claim.unknown_class == "HUMAN_EXTERNAL_EVIDENCE_REQUIRED" and
+          (.live_v050.invariants | length) == 12 and
+          .invariant_count == 12 and
+          ([.proofs[] | select(.choice == "FOUNDATION" and .total == 4)] | length) == 1 and
+          ([.proofs[] | select(.choice == "COHERENCE" and .total == 4)] | length) == 1 and
+          ([.proofs[] | select(.choice == "REGRESSION" and .total == 4)] | length) == 1 and
+          ([.indicator_classes[] | select(.class == "DRIVER" and .total == 4)] | length) == 1 and
+          ([.indicator_classes[] | select(.class == "OUTCOME" and .total == 4)] | length) == 1 and
+          ([.indicator_classes[] | select(.class == "GUARDRAIL" and .total == 4)] | length) == 1 and
             .tests.failed == 0 and .tests.unknown == 0 and
             .runtime_authority == {repository_writes:0,remote_writes:0,apply_authority:0,commit_authority:0,merge_authority:0,tag_authority:0,release_authority:0,local_test_executions:0,cross_project_required_gates:0} and
             .local_authority == {test:0,build:0,vet:0,lint:0,format:0,check:0,conformance:0,integration:0} and

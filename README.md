@@ -33,6 +33,12 @@ UNKNOWN claims always carry `stage`, `step`, `reason`, `unknown_class`,
 `next_operation`, and `blocked_by`. No score, percentage, average, or
 aggregate utility is emitted.
 
+The same `.gooo` meta contract declares exactly 12 named invariants. Their
+proof families are fixed at 4 FOUNDATION, 4 COHERENCE, and 4 REGRESSION; their
+indicator classes are fixed at 4 DRIVER, 4 OUTCOME, and 4 GUARDRAIL. The
+invariant declarations are bound one-to-one to the canonical cases and are
+carried into the cycle manifest, evidence manifest, and human report.
+
 Five released projector inputs are locked by immutable release, annotated tag,
 asset ID, size, and digest in both the v2 `.gooo` meta source and
 `contracts/v0.2-cycle-locks.json`. The optional live observation locks

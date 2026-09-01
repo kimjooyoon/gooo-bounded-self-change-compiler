@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-func renderReport(ir SemanticIR, decision string, cases []CaseResult, execution ExecutionInput, core Claim, mode string) string {
+func renderReport(ir SemanticIR, decision string, cases []CaseResult, invariants []InvariantResult, proofs, indicators []map[string]any, execution ExecutionInput, core Claim, mode string) string {
 	var b strings.Builder
 	b.WriteString("# Gooo deterministic bounded self-improvement cycle v0.2\n\n")
 	fmt.Fprintf(&b, "Decision: `%s`\n\n", decision)
@@ -14,9 +14,9 @@ func renderReport(ir SemanticIR, decision string, cases []CaseResult, execution 
 	b.WriteString("The semantic owner is the `.gooo` meta/source pair. Go generated only the evaluator and ephemeral candidate runtime.\n\n")
 	b.WriteString("## Fixed 12-case judgment vector\n\n")
 	b.WriteString("The denominator is exactly 12: 4 CLOSED, 4 UNKNOWN, 4 REFUTED. Resolution precedence is `REFUTED > UNKNOWN > CLOSED`; no score, percentage, average, or aggregate utility is emitted.\n\n")
-	b.WriteString("| # | case | expected | state | semantic edge | claim |\n|---:|---|---|---|---|---|\n")
+	b.WriteString("| # | invariant | proof | indicator | expected | state | semantic edge | claim |\n|---:|---|---|---|---|---|---|---|\n")
 	for _, result := range cases {
-		fmt.Fprintf(&b, "| %d | %s | %s | %s | %s | %s |\n", result.Ordinal, result.ID, result.ExpectedState, result.State, result.SemanticEdge, result.Claim.Reason)
+		fmt.Fprintf(&b, "| %d | %s | %s | %s | %s | %s | %s | %s |\n", result.Ordinal, result.ID, result.ProofChoice, result.IndicatorClass, result.ExpectedState, result.State, result.SemanticEdge, result.Claim.Reason)
 	}
 	b.WriteString("\n## Cycle authority\n\n")
 	b.WriteString("- repository writes: `0`\n- remote writes: `0`\n- apply/commit/merge/tag/release authority: `0`\n- local test executions: `0`\n- cross-project required gates: `0`\n- runtime local validation commands: `0`\n\n")
@@ -26,6 +26,22 @@ func renderReport(ir SemanticIR, decision string, cases []CaseResult, execution 
 		fmt.Fprintf(&b, "Exact before/after counterexample pair: `%d -> %d`.\n\n", execution.BeforeAfter["before"], execution.BeforeAfter["after"])
 	} else {
 		b.WriteString("The immutable ledger v0.50 observation exposes `EXTERNAL_UTILITY_EVIDENCE`. Automation cannot produce that evidence, so the live cycle stops at `UNKNOWN / HUMAN_EXTERNAL_EVIDENCE_REQUIRED`; no source change or fabricated proposal is emitted.\n\n")
+	}
+	b.WriteString("## Invariant vectors\n\n")
+	b.WriteString("The 12 named invariants are classified by proof family and indicator class; each axis is fixed at 4/4/4.\n\n")
+	b.WriteString("Proof families: ")
+	for i, proof := range proofs {
+		if i > 0 { b.WriteString(", ") }
+		fmt.Fprintf(&b, "`%s`=%d", proof["choice"], proof["total"])
+	}
+	b.WriteString(". Indicator classes: ")
+	for i, indicator := range indicators {
+		if i > 0 { b.WriteString(", ") }
+		fmt.Fprintf(&b, "`%s`=%d", indicator["class"], indicator["total"])
+	}
+	b.WriteString(".\n\n")
+	if len(invariants) != len(cases) {
+		b.WriteString("Invariant binding is incomplete.\n\n")
 	}
 	fmt.Fprintf(&b, "Core judgment: `%s` — %s\n\n", core.State, core.Reason)
 	b.WriteString("## Provenance\n\n")
