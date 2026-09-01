@@ -17,14 +17,14 @@ const (
 )
 
 type Authority struct {
-	RepositoryWrites          int  `json:"repository_writes"`
-	ApplyAuthority            int  `json:"apply_authority"`
-	CommitAuthority           int  `json:"commit_authority"`
-	MergeAuthority            int  `json:"merge_authority"`
-	TagAuthority              int  `json:"tag_authority"`
-	ReleaseAuthority          int  `json:"release_authority"`
-	LocalTestExecutions       int  `json:"local_test_executions"`
-	CrossProjectRequiredGates int  `json:"cross_project_required_gates"`
+	RepositoryWrites          int `json:"repository_writes"`
+	ApplyAuthority            int `json:"apply_authority"`
+	CommitAuthority           int `json:"commit_authority"`
+	MergeAuthority            int `json:"merge_authority"`
+	TagAuthority              int `json:"tag_authority"`
+	ReleaseAuthority          int `json:"release_authority"`
+	LocalTestExecutions       int `json:"local_test_executions"`
+	CrossProjectRequiredGates int `json:"cross_project_required_gates"`
 }
 
 type BaselineDecl struct {
@@ -70,14 +70,14 @@ type SourceDecl struct {
 	Schema         string             `json:"schema"`
 	Version        string             `json:"version"`
 	Scenario       string             `json:"scenario"`
-	Baseline       BaselineDecl      `json:"baseline"`
+	Baseline       BaselineDecl       `json:"baseline"`
 	Counterexample CounterexampleDecl `json:"counterexample"`
-	Intent         IntentDecl        `json:"improvement_intent"`
-	EditSurface    EditSurfaceDecl   `json:"permitted_edit_surface"`
-	Invariants     []InvariantDecl   `json:"invariants"`
-	Guardrails     []GuardrailDecl   `json:"guardrails"`
-	Evidence       []EvidenceDecl    `json:"evidence_obligations"`
-	Authority      Authority         `json:"authority"`
+	Intent         IntentDecl         `json:"improvement_intent"`
+	EditSurface    EditSurfaceDecl    `json:"permitted_edit_surface"`
+	Invariants     []InvariantDecl    `json:"invariants"`
+	Guardrails     []GuardrailDecl    `json:"guardrails"`
+	Evidence       []EvidenceDecl     `json:"evidence_obligations"`
+	Authority      Authority           `json:"authority"`
 	SourceDigest   string             `json:"source_digest"`
 }
 
@@ -87,14 +87,14 @@ type RuleSpec struct {
 }
 
 type CanonicalCase struct {
-	Ordinal      int      `json:"ordinal"`
-	ID           string   `json:"id"`
-	ExpectedState string  `json:"expected_state"`
-	Probe        string   `json:"probe"`
-	Fixture      string   `json:"fixture"`
-	SemanticEdge string   `json:"semantic_edge"`
-	DependsOn    []string `json:"depends_on"`
-	Reason       string   `json:"reason"`
+	Ordinal       int      `json:"ordinal"`
+	ID            string   `json:"id"`
+	ExpectedState string   `json:"expected_state"`
+	Probe         string   `json:"probe"`
+	Fixture       string   `json:"fixture"`
+	SemanticEdge  string   `json:"semantic_edge"`
+	DependsOn     []string `json:"depends_on"`
+	Reason        string   `json:"reason"`
 }
 
 type MetaDecl struct {
@@ -109,12 +109,12 @@ type MetaDecl struct {
 }
 
 type Contract struct {
-	Schema          string          `json:"schema"`
-	ID              string          `json:"id"`
-	Version         string          `json:"version"`
-	CaseCount       int             `json:"case_count"`
-	Fixed           bool            `json:"fixed"`
-	Cases           []CanonicalCase `json:"cases"`
+	Schema         string          `json:"schema"`
+	ID             string          `json:"id"`
+	Version        string          `json:"version"`
+	CaseCount      int             `json:"case_count"`
+	Fixed          bool            `json:"fixed"`
+	Cases          []CanonicalCase `json:"cases"`
 	RequiredFiles   []string        `json:"required_files"`
 	RequiredSource []string        `json:"required_source_fields"`
 }
@@ -147,11 +147,11 @@ type SemanticIR struct {
 	BaselineRule   string             `json:"baseline_rule"`
 	CandidateRule  string             `json:"candidate_rule"`
 	Counterexample CounterexampleDecl `json:"counterexample"`
-	Intent         IntentDecl        `json:"improvement_intent"`
-	EditSurface    EditSurfaceDecl   `json:"permitted_edit_surface"`
-	Invariants     []InvariantDecl   `json:"invariants"`
-	Guardrails     []GuardrailDecl   `json:"guardrails"`
-	Evidence       []EvidenceDecl    `json:"evidence_obligations"`
+	Intent         IntentDecl         `json:"improvement_intent"`
+	EditSurface    EditSurfaceDecl    `json:"permitted_edit_surface"`
+	Invariants     []InvariantDecl    `json:"invariants"`
+	Guardrails     []GuardrailDecl    `json:"guardrails"`
+	Evidence       []EvidenceDecl     `json:"evidence_obligations"`
 	Authority      Authority          `json:"authority"`
 	Precedence     []string           `json:"precedence"`
 	UnknownFields  []string           `json:"unknown_fields"`
@@ -161,37 +161,37 @@ type SemanticIR struct {
 }
 
 type CandidateArtifact struct {
-	Schema         string `json:"schema"`
-	Scenario       string `json:"scenario"`
-	BaselineRule   string `json:"baseline_rule"`
-	CandidateRule  string `json:"candidate_rule"`
-	SourceDigest   string `json:"source_digest"`
-	MetaDigest     string `json:"meta_digest"`
-	ContractDigest string `json:"contract_digest"`
-	IRDigest       string `json:"ir_digest"`
-	EditSurface    string `json:"edit_surface"`
-	ProposedChange string `json:"proposed_change"`
+	Schema          string `json:"schema"`
+	Scenario        string `json:"scenario"`
+	BaselineRule    string `json:"baseline_rule"`
+	CandidateRule   string `json:"candidate_rule"`
+	SourceDigest    string `json:"source_digest"`
+	MetaDigest      string `json:"meta_digest"`
+	ContractDigest  string `json:"contract_digest"`
+	IRDigest        string `json:"ir_digest"`
+	EditSurface     string `json:"edit_surface"`
+	ProposedChange  string `json:"proposed_change"`
 	CandidateDigest string `json:"candidate_digest,omitempty"`
 }
 
 type PatchProposal struct {
-	Schema         string `json:"schema"`
-	Scenario       string `json:"scenario"`
-	InputFile      string `json:"input_file"`
-	EditSurface    string `json:"edit_surface"`
-	Before         string `json:"before"`
-	After          string `json:"after"`
-	UnifiedDiff    string `json:"unified_diff"`
-	SourceDigest   string `json:"source_digest"`
-	CandidateDigest string `json:"candidate_digest"`
-	RepositoryWrites int `json:"repository_writes"`
+	Schema           string `json:"schema"`
+	Scenario         string `json:"scenario"`
+	InputFile        string `json:"input_file"`
+	EditSurface      string `json:"edit_surface"`
+	Before           string `json:"before"`
+	After            string `json:"after"`
+	UnifiedDiff      string `json:"unified_diff"`
+	SourceDigest     string `json:"source_digest"`
+	CandidateDigest  string `json:"candidate_digest"`
+	RepositoryWrites int    `json:"repository_writes"`
 }
 
 type GenerationReceipt struct {
 	Schema                    string   `json:"schema"`
 	SourceToIR                string   `json:"source_to_ir"`
 	IRToCandidate             string   `json:"ir_to_candidate"`
-	GeneratedFiles             []string `json:"generated_files"`
+	GeneratedFiles            []string `json:"generated_files"`
 	Generated                 int      `json:"generated"`
 	CallerOwnedTempOutput     bool     `json:"caller_owned_temp_output"`
 	RepositoryWrites          int      `json:"repository_writes"`
@@ -202,9 +202,9 @@ type GenerationReceipt struct {
 }
 
 type ExecutionObservation struct {
-	Variant string `json:"variant"`
-	Input   int    `json:"input"`
-	Verdict string `json:"verdict"`
+	Variant  string `json:"variant"`
+	Input    int    `json:"input"`
+	Verdict  string `json:"verdict"`
 	Accepted bool   `json:"accepted"`
 }
 
@@ -245,14 +245,14 @@ type Claim struct {
 }
 
 type CaseResult struct {
-	Ordinal      int      `json:"ordinal"`
-	ID           string   `json:"id"`
-	ExpectedState string  `json:"expected_state"`
-	State        string   `json:"state"`
-	Probe        string   `json:"probe"`
-	Fixture      string   `json:"fixture"`
-	SemanticEdge string   `json:"semantic_edge"`
-	Claim        Claim    `json:"claim"`
+	Ordinal       int    `json:"ordinal"`
+	ID            string `json:"id"`
+	ExpectedState string `json:"expected_state"`
+	State         string `json:"state"`
+	Probe         string `json:"probe"`
+	Fixture       string `json:"fixture"`
+	SemanticEdge  string `json:"semantic_edge"`
+	Claim         Claim  `json:"claim"`
 }
 
 type CaseSummary struct {

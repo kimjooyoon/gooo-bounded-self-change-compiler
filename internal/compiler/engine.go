@@ -175,17 +175,17 @@ func Generate(meta MetaDecl, source SourceDecl, contract Contract, outputDir str
 		return SemanticIR{}, err
 	}
 	plan := map[string]any{
-		"schema":             "gooo/bounded-self-change/verification-plan/v1",
-		"scenario":           ir.Scenario,
-		"source_digest":      ir.SourceDigest,
-		"meta_digest":        ir.MetaDigest,
-		"contract_digest":    ir.ContractDigest,
-		"ir_digest":          ir.IRDigest,
-		"runner":             RunnerIdentity,
-		"toolchain":          ToolchainIdentity,
-		"before":             map[string]any{"input": ir.Counterexample.Input, "expected": "reject"},
-		"after":              map[string]any{"input": ir.Counterexample.Input, "expected": "accept"},
-		"guardrail":          map[string]any{"input": ir.Guardrails[0].Input, "expected": ir.Guardrails[0].Expected},
+		"schema":                "gooo/bounded-self-change/verification-plan/v1",
+		"scenario":              ir.Scenario,
+		"source_digest":         ir.SourceDigest,
+		"meta_digest":           ir.MetaDigest,
+		"contract_digest":       ir.ContractDigest,
+		"ir_digest":             ir.IRDigest,
+		"runner":                RunnerIdentity,
+		"toolchain":             ToolchainIdentity,
+		"before":                map[string]any{"input": ir.Counterexample.Input, "expected": "reject"},
+		"after":                 map[string]any{"input": ir.Counterexample.Input, "expected": "accept"},
+		"guardrail":             map[string]any{"input": ir.Guardrails[0].Input, "expected": ir.Guardrails[0].Expected},
 		"required_observations": []string{"before-counterexample", "after-counterexample", "after-negative", "after-positive"},
 	}
 	if err := WriteJSON(filepath.Join(outputDir, "verification-plan.json"), plan); err != nil {
@@ -195,7 +195,7 @@ func Generate(meta MetaDecl, source SourceDecl, contract Contract, outputDir str
 		Schema:                    ReceiptSchema,
 		SourceToIR:                "GOOO_DECLARATIONS_TO_SEMANTIC_IR_AND_GRAPH",
 		IRToCandidate:             "SEMANTIC_IR_TO_CALLER_OWNED_CANDIDATE_ARTIFACTS",
-		GeneratedFiles:             []string{"semantic-ir.json", "semantic-graph.json", "candidate-artifact.json", "candidate.gooo", "candidate.go", "proposal.patch.json", "verification-plan.json", "generation-receipt.json"},
+		GeneratedFiles:            []string{"semantic-ir.json", "semantic-graph.json", "candidate-artifact.json", "candidate.gooo", "candidate.go", "proposal.patch.json", "verification-plan.json", "generation-receipt.json"},
 		Generated:                 8,
 		CallerOwnedTempOutput:     true,
 		RepositoryWrites:          0,
@@ -212,16 +212,16 @@ func Generate(meta MetaDecl, source SourceDecl, contract Contract, outputDir str
 
 func candidateArtifact(ir SemanticIR) (CandidateArtifact, error) {
 	candidate := CandidateArtifact{
-		Schema:          CandidateSchema,
-		Scenario:        ir.Scenario,
-		BaselineRule:    ir.BaselineRule,
-		CandidateRule:   ir.CandidateRule,
-		SourceDigest:    ir.SourceDigest,
-		MetaDigest:      ir.MetaDigest,
-		ContractDigest:  ir.ContractDigest,
-		IRDigest:        ir.IRDigest,
-		EditSurface:     ir.EditSurface.Field,
-		ProposedChange:  "threshold:strict_positive_to_non_negative",
+		Schema:         CandidateSchema,
+		Scenario:       ir.Scenario,
+		BaselineRule:   ir.BaselineRule,
+		CandidateRule:  ir.CandidateRule,
+		SourceDigest:   ir.SourceDigest,
+		MetaDigest:     ir.MetaDigest,
+		ContractDigest: ir.ContractDigest,
+		IRDigest:       ir.IRDigest,
+		EditSurface:    ir.EditSurface.Field,
+		ProposedChange: "threshold:strict_positive_to_non_negative",
 	}
 	digest, err := unsignedCandidateDigest(candidate)
 	if err != nil {

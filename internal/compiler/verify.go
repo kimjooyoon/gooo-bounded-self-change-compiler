@@ -89,13 +89,13 @@ func Verify(metaPath, sourcePath, contractPath, outputDir, observationsPath stri
 			CrossProjectRequiredGates: 0,
 		},
 		Evidence: map[string]string{
-			"source_digest":   ir.SourceDigest,
-			"meta_digest":     ir.MetaDigest,
-			"contract_digest": ir.ContractDigest,
-			"ir_digest":       ir.IRDigest,
+			"source_digest":    ir.SourceDigest,
+			"meta_digest":      ir.MetaDigest,
+			"contract_digest":  ir.ContractDigest,
+			"ir_digest":        ir.IRDigest,
 			"candidate_digest": candidateDigest(ir, outputDir),
-			"toolchain":       execution.Toolchain,
-			"runner":          execution.Runner,
+			"toolchain":        execution.Toolchain,
+			"runner":           execution.Runner,
 		},
 	}
 	if err := WriteJSON(filepath.Join(outputDir, "decision-dossier.json"), report); err != nil {
