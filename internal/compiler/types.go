@@ -77,7 +77,7 @@ type SourceDecl struct {
 	Invariants     []InvariantDecl    `json:"invariants"`
 	Guardrails     []GuardrailDecl    `json:"guardrails"`
 	Evidence       []EvidenceDecl     `json:"evidence_obligations"`
-	Authority      Authority           `json:"authority"`
+	Authority      Authority          `json:"authority"`
 	SourceDigest   string             `json:"source_digest"`
 }
 
@@ -115,7 +115,7 @@ type Contract struct {
 	CaseCount      int             `json:"case_count"`
 	Fixed          bool            `json:"fixed"`
 	Cases          []CanonicalCase `json:"cases"`
-	RequiredFiles   []string        `json:"required_files"`
+	RequiredFiles  []string        `json:"required_files"`
 	RequiredSource []string        `json:"required_source_fields"`
 }
 
