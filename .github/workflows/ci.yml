@@ -31,6 +31,7 @@ jobs:
         run: |
           set -euo pipefail
           files=$(gofmt -l $(git ls-files '*.go'))
+          printf '%s\n' "$files"
           test -z "$files"
       - name: Prepare evidence directories
         run: |
