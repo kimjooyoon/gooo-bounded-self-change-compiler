@@ -27,6 +27,10 @@ immutable ledger → causal frontier → unique action → bounded change
 → per-indicator judgment → content-addressed evidence → next-wave proposal
 ```
 
+The original v0.2.0 release remains an immutable historical release. The
+authoritative release for the named-invariant contract is v0.2.1 and is
+created only from a successful `main` Actions run.
+
 The v0.2 denominator is fixed at exactly 12 canonical cases: 4 CLOSED, 4
 UNKNOWN, and 4 REFUTED. Resolution is always `REFUTED > UNKNOWN > CLOSED`.
 UNKNOWN claims always carry `stage`, `step`, `reason`, `unknown_class`,
