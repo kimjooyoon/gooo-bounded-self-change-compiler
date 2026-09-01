@@ -1,11 +1,12 @@
-name: Immutable bounded self-change release
+name: Immutable bounded self-change v0.2.0 release
 
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: Immutable release version, for example 0.1.0
+        description: Immutable release version
         required: true
+        default: 0.2.0
         type: string
 
 permissions:
@@ -25,44 +26,49 @@ jobs:
         with:
           go-version: 1.27.0
           cache: false
-      - name: Verify merged main commit and Go 1.27
+      - name: Verify immutable v0.2.0 target
         run: |
+          test "${{ inputs.version }}" = "0.2.0"
           test "${GITHUB_REF_NAME}" = "main"
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
           test "$(go env GOVERSION)" = "go1.27.0"
-      - name: Verify formatting
-        shell: bash
+      - name: Prepare caller-owned release evidence directories
         run: |
-          set -euo pipefail
-          files=$(gofmt -l $(git ls-files '*.go'))
-          printf '%s\n' "$files"
-          test -z "$files"
-      - name: Prepare release evidence directories
-        run: |
-          echo "METRICS_DIR=$RUNNER_TEMP/gooo-bounded-self-change-release-metrics" >> "$GITHUB_ENV"
-          echo "CONFORMANCE_WORK_ROOT=$RUNNER_TEMP/gooo-bounded-self-change-release-conformance" >> "$GITHUB_ENV"
-          echo "INTEGRATION_WORK_ROOT=$RUNNER_TEMP/gooo-bounded-self-change-release-integration" >> "$GITHUB_ENV"
-          echo "EVIDENCE_DIR=$RUNNER_TEMP/gooo-bounded-self-change-release-evidence" >> "$GITHUB_ENV"
-          mkdir -p "$RUNNER_TEMP/gooo-bounded-self-change-release-metrics" "$RUNNER_TEMP/gooo-bounded-self-change-release-conformance" "$RUNNER_TEMP/gooo-bounded-self-change-release-integration" "$RUNNER_TEMP/gooo-bounded-self-change-release-evidence"
-      - name: Measure compile
-        run: bash scripts/measure-stage.sh compile "$METRICS_DIR/compile.json" go build -buildmode=archive -trimpath -o "$RUNNER_TEMP/gooo-bounded-self-change-release-internal.a" ./internal/compiler
-      - name: Measure build
-        run: bash scripts/measure-stage.sh build "$METRICS_DIR/build.json" go build -trimpath -o "$RUNNER_TEMP/gooo-bounded-self-change-release-bin" ./cmd/gooo-bounded-self-change-compiler
+          echo "METRICS_DIR=$RUNNER_TEMP/gooo-v02-release-metrics" >> "$GITHUB_ENV"
+          echo "CYCLE_WORK_ROOT=$RUNNER_TEMP/gooo-v02-release-cycle-work" >> "$GITHUB_ENV"
+          echo "CYCLE_INTEGRATION_OUT=$RUNNER_TEMP/gooo-v02-release-integration.json" >> "$GITHUB_ENV"
+          echo "CYCLE_OUTPUT_DIR=$RUNNER_TEMP/gooo-v02-release-cycle-output" >> "$GITHUB_ENV"
+          echo "LIVE_WORK_ROOT=$RUNNER_TEMP/gooo-v02-release-live-work" >> "$GITHUB_ENV"
+          echo "LIVE_OUTPUT_DIR=$RUNNER_TEMP/gooo-v02-release-live-output" >> "$GITHUB_ENV"
+          echo "EVIDENCE_DIR=$RUNNER_TEMP/gooo-v02-release-evidence" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/gooo-v02-release-metrics" "$RUNNER_TEMP/gooo-v02-release-cycle-work" "$RUNNER_TEMP/gooo-v02-release-live-work" "$RUNNER_TEMP/gooo-v02-release-evidence"
+      - name: Measure compiler package
+        run: bash scripts/measure-stage.sh compile "$METRICS_DIR/compile.json" go build -buildmode=archive -trimpath -o "$RUNNER_TEMP/gooo-v02-release-cycle.a" ./internal/cycle
+      - name: Measure command build
+        run: bash scripts/measure-stage.sh build "$METRICS_DIR/build.json" go build -trimpath -o "$RUNNER_TEMP/gooo-v02-release-cycle-bin" ./cmd/gooo-bounded-self-change-compiler
       - name: Measure Go tests
         shell: bash
-        run: bash scripts/measure-stage.sh test "$METRICS_DIR/test.json" bash -c 'set -o pipefail; go test -json ./... | tee "$RUNNER_TEMP/gooo-bounded-self-change-release-go-test-events.jsonl"'
-      - name: Measure fixed canonical conformance
+        run: bash scripts/measure-stage.sh test "$METRICS_DIR/test.json" bash -c 'set -o pipefail; go test -json ./... | tee "$RUNNER_TEMP/gooo-v02-release-go-test-events.jsonl"'
+      - name: Measure fixed v0.2 conformance
         shell: bash
-        run: CONFORMANCE_WORK_ROOT="$CONFORMANCE_WORK_ROOT" CONFORMANCE_COUNTS_OUT="$RUNNER_TEMP/gooo-bounded-self-change-release-conformance-counts.json" bash scripts/measure-stage.sh conformance "$METRICS_DIR/conformance.json" bash scripts/conformance.sh "$RUNNER_TEMP/gooo-bounded-self-change-release-bin"
+        run: CYCLE_WORK_ROOT="$CYCLE_WORK_ROOT" bash scripts/measure-stage.sh conformance "$METRICS_DIR/conformance.json" bash scripts/conformance-v2.sh "$RUNNER_TEMP/gooo-v02-release-cycle-bin"
       - name: Measure caller-owned integration
         shell: bash
-        run: INTEGRATION_WORK_ROOT="$INTEGRATION_WORK_ROOT" INTEGRATION_RESULT_OUT="$RUNNER_TEMP/gooo-bounded-self-change-release-integration-result.json" bash scripts/measure-stage.sh integration "$METRICS_DIR/integration.json" bash scripts/integration.sh "$RUNNER_TEMP/gooo-bounded-self-change-release-bin"
-      - name: Assemble release machine evidence
-        run: bash scripts/assemble-ci-evidence.sh "$METRICS_DIR" "$RUNNER_TEMP/gooo-bounded-self-change-release-go-test-events.jsonl" "$RUNNER_TEMP/gooo-bounded-self-change-release-conformance-counts.json" "$RUNNER_TEMP/gooo-bounded-self-change-release-integration-result.json" "$CONFORMANCE_WORK_ROOT" "$EVIDENCE_DIR/ci-evidence.json"
-      - name: Verify release evidence
-        run: jq -e '.tests.total == 3 and .conformance.total == 9 and .conformance.closed == 3 and .conformance.unknown == 3 and .conformance.refuted == 3 and .runtime_authority.repository_writes == 0 and .inventory.root_readme_excluded == true' "$EVIDENCE_DIR/ci-evidence.json" >/dev/null
-      - name: Publish release dossier to job summary
-        run: cat "$EVIDENCE_DIR/evidence/human-report.md" >> "$GITHUB_STEP_SUMMARY"
+        run: CYCLE_WORK_ROOT="$CYCLE_WORK_ROOT" CYCLE_INTEGRATION_OUT="$CYCLE_INTEGRATION_OUT" bash scripts/measure-stage.sh integration "$METRICS_DIR/integration.json" bash scripts/integration-v2.sh
+      - name: Finalize internal v0.2 release cycle
+        shell: bash
+        run: CYCLE_WORK_ROOT="$CYCLE_WORK_ROOT" METRICS_DIR="$METRICS_DIR" CYCLE_INTEGRATION_OUT="$CYCLE_INTEGRATION_OUT" CYCLE_OUTPUT_DIR="$CYCLE_OUTPUT_DIR" bash scripts/finalize-v2.sh "$RUNNER_TEMP/gooo-v02-release-cycle-bin"
+      - name: Observe immutable live ledger v0.50
+        shell: bash
+        run: LIVE_WORK_ROOT="$LIVE_WORK_ROOT" LIVE_OUTPUT_DIR="$LIVE_OUTPUT_DIR" bash scripts/live-v2.sh "$RUNNER_TEMP/gooo-v02-release-cycle-bin"
+      - name: Assemble immutable release evidence
+        run: bash scripts/assemble-ci-evidence-v2.sh "$GITHUB_WORKSPACE" "$CYCLE_OUTPUT_DIR" "$LIVE_OUTPUT_DIR" "$METRICS_DIR" "$RUNNER_TEMP/gooo-v02-release-go-test-events.jsonl" "$EVIDENCE_DIR"
+      - name: Verify release vector and authority
+        run: |
+          set -euo pipefail
+          jq -e '.cycle.decision == "CLOSED" and .cycle.vector == {total:12,closed:4,unknown:4,refuted:4} and .live_v050.decision == "UNKNOWN" and .runtime_authority.repository_writes == 0 and .runtime_authority.remote_writes == 0 and .cycle.runtime_local_validation_commands == 0 and .artifacts.required_output_count == 8 and .artifacts.generated_count == 8 and .historical_failures_preserved == true' "$EVIDENCE_DIR/ci-evidence.json" >/dev/null
+      - name: Publish release report to job summary
+        run: cat "$EVIDENCE_DIR/human-report.md" >> "$GITHUB_STEP_SUMMARY"
       - name: Package immutable evidence asset
         id: package
         run: |
@@ -75,21 +81,18 @@ jobs:
         run: |
           set -euo pipefail
           tag="v${{ inputs.version }}"
-          if git show-ref --verify --quiet "refs/tags/$tag"; then
-            echo "existing release tag must not be modified: $tag" >&2
-            exit 1
-          fi
+          if git show-ref --verify --quiet "refs/tags/$tag"; then echo "existing tag must not be modified: $tag" >&2; exit 1; fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git tag -a "$tag" "$GITHUB_SHA" -m "gooo-bounded-self-change-compiler $tag"
           git push origin "$tag"
-      - name: Create one draft release with github.token
+      - name: Create one draft release
         run: gh release create "v${{ inputs.version }}" --draft --verify-tag --title "v${{ inputs.version }}" --notes "Immutable bounded self-change compiler release v${{ inputs.version }} at $GITHUB_SHA."
       - name: Upload evidence before publish
         run: gh release upload "v${{ inputs.version }}" "${{ steps.package.outputs.asset }}"
       - name: Publish release exactly once
         run: gh release edit "v${{ inputs.version }}" --draft=false
-      - name: Verify public immutable release, tag object, asset ID and digest
+      - name: Verify public immutable release, annotated tag and asset digest
         shell: bash
         run: |
           set -euo pipefail
@@ -97,9 +100,10 @@ jobs:
           release=$(gh api --header 'X-GitHub-Api-Version: 2022-11-28' "repos/$GITHUB_REPOSITORY/releases/tags/$tag")
           test "$(jq -er '.immutable' <<<"$release")" = true
           release_id=$(jq -er '.id' <<<"$release")
-          asset_id=$(jq -er --arg name "gooo-bounded-self-change-compiler-v${{ inputs.version }}-ci-evidence.tar.gz" '.assets[] | select(.name == $name) | .id' <<<"$release")
-          asset_size=$(jq -er --arg name "gooo-bounded-self-change-compiler-v${{ inputs.version }}-ci-evidence.tar.gz" '.assets[] | select(.name == $name) | .size' <<<"$release")
-          asset_digest=$(jq -er --arg name "gooo-bounded-self-change-compiler-v${{ inputs.version }}-ci-evidence.tar.gz" '.assets[] | select(.name == $name) | .digest' <<<"$release")
+          asset_name="gooo-bounded-self-change-compiler-v${{ inputs.version }}-ci-evidence.tar.gz"
+          asset_id=$(jq -er --arg name "$asset_name" '.assets[] | select(.name == $name) | .id' <<<"$release")
+          asset_size=$(jq -er --arg name "$asset_name" '.assets[] | select(.name == $name) | .size' <<<"$release")
+          asset_digest=$(jq -er --arg name "$asset_name" '.assets[] | select(.name == $name) | .digest' <<<"$release")
           test "$asset_digest" = "sha256:${{ steps.package.outputs.asset_sha256 }}"
           ref=$(gh api --header 'X-GitHub-Api-Version: 2022-11-28' "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag")
           test "$(jq -er '.object.type' <<<"$ref")" = tag

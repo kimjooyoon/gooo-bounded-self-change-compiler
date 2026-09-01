@@ -1,0 +1,52 @@
+gooo bounded_self_change_cycle_meta v2
+semantic_owner owner=gooo
+precedence order=REFUTED>UNKNOWN>CLOSED
+unknown_fields fields=stage,step,reason,unknown_class,next_operation,blocked_by
+authority repository_writes=0 remote_writes=0 apply_authority=0 commit_authority=0 merge_authority=0 tag_authority=0 release_authority=0 local_test_executions=0 cross_project_required_gates=0
+live_action frontier=EXTERNAL_UTILITY_EVIDENCE action=HUMAN_EXTERNAL_EVIDENCE_REQUIRED
+
+# Stages and their causal edges are semantic meta owned by this .gooo file.
+stage ordinal=1 id=OBSERVE_IMMUTABLE_LEDGER input=immutable_release_lock output=ledger_observation edge=ledger:immutable->observed
+stage ordinal=2 id=PROJECT_CAUSAL_FRONTIER input=ledger_observation output=causal_frontier edge=observation->frontier
+stage ordinal=3 id=REQUIRE_EXPLICIT_UNIQUE_ACTION input=causal_frontier output=unique_action edge=frontier->action
+stage ordinal=4 id=GENERATE_BOUNDED_CHANGE input=unique_action output=bounded_change edge=action->proposal
+stage ordinal=5 id=APPLY_CALLER_TEMP_ONLY input=bounded_change output=temp_candidate edge=proposal->caller_temp
+stage ordinal=6 id=PROJECT_SEMANTIC_TEST_IMPACT input=temp_candidate output=impacted_tests edge=change->semantic_tests
+stage ordinal=7 id=MEASURE_COVERED_STAGE input=impacted_tests output=measurement_vector edge=tests->measurement
+stage ordinal=8 id=EVALUATE_PER_INDICATOR_VECTOR input=measurement_vector output=indicator_judgments edge=measurement->judgment
+stage ordinal=9 id=PACKAGE_CONTENT_ADDRESSED_EVIDENCE input=indicator_judgments output=evidence_manifest edge=judgment->evidence
+stage ordinal=10 id=EMIT_NEXT_LEDGER_WAVE_PROPOSAL input=evidence_manifest output=next_wave_proposal edge=evidence->next_wave
+
+edge ordinal=1 from=OBSERVE_IMMUTABLE_LEDGER to=PROJECT_CAUSAL_FRONTIER relation=causes
+edge ordinal=2 from=PROJECT_CAUSAL_FRONTIER to=REQUIRE_EXPLICIT_UNIQUE_ACTION relation=causes
+edge ordinal=3 from=REQUIRE_EXPLICIT_UNIQUE_ACTION to=GENERATE_BOUNDED_CHANGE relation=causes
+edge ordinal=4 from=GENERATE_BOUNDED_CHANGE to=APPLY_CALLER_TEMP_ONLY relation=causes
+edge ordinal=5 from=APPLY_CALLER_TEMP_ONLY to=PROJECT_SEMANTIC_TEST_IMPACT relation=causes
+edge ordinal=6 from=PROJECT_SEMANTIC_TEST_IMPACT to=MEASURE_COVERED_STAGE relation=causes
+edge ordinal=7 from=MEASURE_COVERED_STAGE to=EVALUATE_PER_INDICATOR_VECTOR relation=causes
+edge ordinal=8 from=EVALUATE_PER_INDICATOR_VECTOR to=PACKAGE_CONTENT_ADDRESSED_EVIDENCE relation=causes
+edge ordinal=9 from=PACKAGE_CONTENT_ADDRESSED_EVIDENCE to=EMIT_NEXT_LEDGER_WAVE_PROPOSAL relation=causes
+
+test id=TEST-COUNTEREXAMPLE-ACCEPTANCE root=bounded-self-change-tests edge=counterexample:reject->accept
+test id=TEST-NEGATIVE-GUARDRAIL root=bounded-self-change-tests edge=guardrail:negative->reject
+test id=TEST-POSITIVE-PRESERVATION root=bounded-self-change-tests edge=guardrail:positive->accept
+
+# The fixed vector is a judgment contract, not a score.
+case ordinal=1 id=V02-01-EXPLICIT-INTERNAL-FRONTIER expected=CLOSED probe=frontier fixture=explicit_internal_frontier edge=frontier:internal->bounded_proposal depends_on=- reason=explicit_unblocked_internal_frontier_yields_one_bounded_proposal
+case ordinal=2 id=V02-02-TEMP-ONLY-SEMANTIC-IMPACT expected=CLOSED probe=change fixture=temp_only_semantic_impact edge=temp_candidate->exact_semantic_tests depends_on=V02-01-EXPLICIT-INTERNAL-FRONTIER reason=temp_only_change_has_exact_semantic_impacted_tests
+case ordinal=3 id=V02-03-MEASUREMENT-EVIDENCE-SAME-SCOPE expected=CLOSED probe=measurement fixture=measurement_evidence_same_scope edge=measurement->content_addressed_evidence depends_on=V02-02-TEMP-ONLY-SEMANTIC-IMPACT reason=measurement_and_evidence_share_the_same_scope
+case ordinal=4 id=V02-04-COUNTEREXAMPLE-NEXT-WAVE expected=CLOSED probe=next_wave fixture=counterexample_next_wave edge=counterexample->next_wave depends_on=V02-03-MEASUREMENT-EVIDENCE-SAME-SCOPE reason=counterexample_is_accepted_without_repository_authority
+case ordinal=5 id=V02-05-NO-ACTIONABLE-FRONTIER expected=UNKNOWN probe=frontier fixture=no_actionable_frontier edge=frontier:missing->unknown depends_on=V02-04-COUNTEREXAMPLE-NEXT-WAVE reason=no_actionable_frontier_is_observed
+case ordinal=6 id=V02-06-INCOMPARABLE-FRONTS expected=UNKNOWN probe=frontier fixture=multiple_incomparable_frontiers edge=frontier:multiple->unknown depends_on=V02-05-NO-ACTIONABLE-FRONTIER reason=multiple_frontiers_have_no_unique_order
+case ordinal=7 id=V02-07-STALE-PARENT-PROOF expected=UNKNOWN probe=ledger fixture=missing_or_stale_parent_proof edge=parent_proof:stale->unknown depends_on=V02-06-INCOMPARABLE-FRONTS reason=parent_proof_is_missing_or_stale
+case ordinal=8 id=V02-08-SCOPE-OR-HUMAN-EVIDENCE expected=UNKNOWN probe=measurement fixture=scope_mismatch_or_human_evidence edge=measurement:scope_mismatch->unknown depends_on=V02-07-STALE-PARENT-PROOF reason=scope_mismatch_or_external_human_evidence_is_required
+case ordinal=9 id=V02-09-UNAUTHORIZED-WRITE expected=REFUTED probe=authority fixture=unauthorized_repository_or_remote_write edge=authority:zero->write depends_on=V02-08-SCOPE-OR-HUMAN-EVIDENCE reason=repository_or_remote_write_is_outside_runtime_authority
+case ordinal=10 id=V02-10-SEMANTIC-ROOT-REUSE-CONTRADICTION expected=REFUTED probe=change fixture=semantic_root_or_test_reuse_contradiction edge=semantic_root:test_reuse->contradiction depends_on=V02-09-UNAUTHORIZED-WRITE reason=semantic_root_or_test_reuse_contradiction_invalidates_the_candidate
+case ordinal=11 id=V02-11-FABRICATED-UTILITY-CLAIM expected=REFUTED probe=measurement fixture=fabricated_aggregate_improvement_or_utility edge=indicator:missing->fabricated depends_on=V02-10-SEMANTIC-ROOT-REUSE-CONTRADICTION reason=aggregate_improvement_or_utility_is_not_evidence
+case ordinal=12 id=V02-12-IGNORED-COUNTEREXAMPLE expected=REFUTED probe=frontier fixture=ignored_counterexample edge=counterexample:ignored->refuted depends_on=V02-11-FABRICATED-UTILITY-CLAIM reason=counterexample_is_ignored
+
+tool id=SELF_IMPROVEMENT_FRONTIER_PROJECTOR repository=kimjooyoon/gooo-self-improvement-frontier-projector tag=v0.2.0 release_id=380832128 immutable=true tag_object_sha=042ca1bf7dfb432bd2ec0abef9e9884c9abe0286 target_sha=98c3529013dad271337e424a7f07d4e5131d7edf asset_name=frontier-projector-evidence.tar.gz asset_id=540161705 asset_size_bytes=18846 asset_digest=sha256:112564378170baddfba44a1b3f5bd39216af65aefbc1f43f13732dbbbd5695a3
+tool id=SEMANTIC_TEST_IMPACT_PROJECTOR repository=kimjooyoon/gooo-semantic-test-impact-projector tag=v0.1.2 release_id=380755197 immutable=true tag_object_sha=6244b9c7115e10203a1472be2620497e9ac602e0 target_sha=a2b1c7f5c24a20dfe44f25dfe50d3b2f60593ea7 asset_name=gooo-semantic-test-impact-projector-evidence.tar.gz asset_id=540004578 asset_size_bytes=2654938 asset_digest=sha256:35dfe3921f82333fd9b44b02984a7e899dd937003802d3e423f760191cdf3a9c
+tool id=MEASUREMENT_BOUNDARY_PROJECTOR repository=kimjooyoon/gooo-measurement-boundary-projector tag=v0.2.0 release_id=380839207 immutable=true tag_object_sha=1bacf104da7ea9d6cf3ebd130801608b8e5afb14 target_sha=1cff6318e748fec494dd9d28ec65db98b94293e0 asset_name=gooo-measurement-boundary-projector-v0.2.0.tar.gz asset_id=540176712 asset_size_bytes=50378 asset_digest=sha256:90acd1f0a56ab38afe6c2b2b2033bd48b361b9dc43dc1257f606568f89076658
+tool id=CONTENT_ADDRESSED_EVIDENCE_PROJECTOR repository=kimjooyoon/gooo-content-addressed-evidence-projector tag=v0.1.1 release_id=380750147 immutable=true tag_object_sha=03dbbe7cd13549d4791e5e6086e036c81db3eac9 target_sha=f3bfd2c6c05a45214fc7ed0732f2c3f0770bf463 asset_name=gooo-content-addressed-evidence-projector-v0.1.1.tar.gz asset_id=539995619 asset_size_bytes=26063 asset_digest=sha256:a1d83f2503755bc6ea591d32cd4ef5d7a088e936da2a843d9d80af947acbe435
+tool id=OPERATIONAL_PROVENANCE_PROJECTOR repository=kimjooyoon/gooo-operational-provenance-projector tag=v0.1.2 release_id=380835618 immutable=true tag_object_sha=7f21cb959ab8d45c82a9790046a4eb86308c4622 target_sha=36126b2a4b177d2b6f44713ffbf6908eb490af4b asset_name=gooo-operational-provenance-projector-evidence.tar.gz asset_id=540170176 asset_size_bytes=14601 asset_digest=sha256:23ed475552506ff279ae84210c1b825b44335db0b1ed258d407b88a59db1de16

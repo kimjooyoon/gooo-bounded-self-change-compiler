@@ -1,0 +1,15 @@
+gooo bounded_self_change_program v2
+scenario id=deterministic-safe-self-improvement
+mode internal
+baseline rule=positive_only
+candidate rule=non_negative
+frontier id=COUNTEREXAMPLE_REPAIR class=INTERNAL_COUNTEREXAMPLE actionable=true unique=true
+action id=GENERATE_BOUNDED_CHANGE authority=CALLER_TEMP_ONLY
+parent_proof state=valid digest=immutable-ledger-parent-v0.50
+counterexample input=0 expected=accept label=zero_rejected
+edit_surface field=threshold operator=lower_bound constraint=single_rule_only
+semantic_root id=bounded-self-change-tests
+test_impact root=bounded-self-change-tests ids=TEST-COUNTEREXAMPLE-ACCEPTANCE,TEST-NEGATIVE-GUARDRAIL,TEST-POSITIVE-PRESERVATION
+counterexample_next_wave accepted=true repository_authority=0
+evidence_scope source=source meta=meta contract=contract runner=ci-job
+authority repository_writes=0 remote_writes=0 apply_authority=0 commit_authority=0 merge_authority=0 tag_authority=0 release_authority=0 local_test_executions=0 cross_project_required_gates=0
