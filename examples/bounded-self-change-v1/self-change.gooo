@@ -1,0 +1,13 @@
+gooo bounded_self_change v1
+scenario id=bounded-zero-acceptance
+baseline rule=positive_only
+counterexample input=0 expected=accept label=zero_rejected
+improvement_intent name=accept_zero
+edit_surface field=threshold operator=lower_bound constraint=single_rule_only
+invariant id=non_negative_only expression=negative_inputs_rejected
+guardrail id=reject_negative input=-1 expected=reject expression=input=-1->reject
+evidence id=source_digest required=true state=complete
+evidence id=meta_digest required=true state=complete
+evidence id=contract_digest required=true state=complete
+evidence id=runner_toolchain required=true state=complete
+authority repository_writes=0 apply_authority=0 commit_authority=0 merge_authority=0 tag_authority=0 release_authority=0 local_test_executions=0 cross_project_required_gates=0

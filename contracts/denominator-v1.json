@@ -1,0 +1,39 @@
+{
+  "schema": "gooo/bounded-self-change/contract/v1",
+  "id": "bounded-self-change-v1",
+  "version": "v1",
+  "case_count": 9,
+  "fixed": true,
+  "required_files": [
+    "semantic-ir.json",
+    "semantic-graph.json",
+    "candidate-artifact.json",
+    "candidate.gooo",
+    "candidate.go",
+    "proposal.patch.json",
+    "verification-plan.json",
+    "generation-receipt.json",
+    "decision-dossier.json",
+    "human-report.md"
+  ],
+  "required_source_fields": [
+    "baseline",
+    "counterexample",
+    "improvement_intent",
+    "permitted_edit_surface",
+    "invariants",
+    "guardrails",
+    "evidence_obligations"
+  ],
+  "cases": [
+    {"ordinal": 1, "id": "CAN-01-COUNTEREXAMPLE-RESOLVED", "expected_state": "CLOSED", "probe": "candidate", "fixture": "counterexample_resolved", "semantic_edge": "counterexample:reject->accept", "depends_on": [], "reason": "original_counterexample_is_repaired"},
+    {"ordinal": 2, "id": "CAN-02-NEGATIVE-GUARDRAIL", "expected_state": "CLOSED", "probe": "guardrail", "fixture": "negative_guardrail_preserved", "semantic_edge": "guardrail:negative->reject", "depends_on": ["CAN-01-COUNTEREXAMPLE-RESOLVED"], "reason": "fixed_negative_guardrail_is_preserved"},
+    {"ordinal": 3, "id": "CAN-03-POSITIVE-PRESERVED", "expected_state": "CLOSED", "probe": "guardrail", "fixture": "positive_preserved", "semantic_edge": "guardrail:positive->accept", "depends_on": ["CAN-02-NEGATIVE-GUARDRAIL"], "reason": "unchanged_positive_behavior_is_preserved"},
+    {"ordinal": 4, "id": "CAN-04-MISSING-COUNTEREXAMPLE", "expected_state": "UNKNOWN", "probe": "input", "fixture": "missing_counterexample", "semantic_edge": "input:missing->unknown", "depends_on": ["CAN-03-POSITIVE-PRESERVED"], "reason": "observed_counterexample_is_not_declared"},
+    {"ordinal": 5, "id": "CAN-05-UNFIXED-EDIT-SURFACE", "expected_state": "UNKNOWN", "probe": "edit_surface", "fixture": "unfixed_edit_surface", "semantic_edge": "edit:unbounded->unknown", "depends_on": ["CAN-04-MISSING-COUNTEREXAMPLE"], "reason": "permitted_edit_surface_is_not_fixed"},
+    {"ordinal": 6, "id": "CAN-06-INCOMPLETE-EVIDENCE", "expected_state": "UNKNOWN", "probe": "evidence", "fixture": "incomplete_evidence", "semantic_edge": "evidence:incomplete->unknown", "depends_on": ["CAN-05-UNFIXED-EDIT-SURFACE"], "reason": "required_provenance_is_incomplete"},
+    {"ordinal": 7, "id": "CAN-07-COUNTEREXAMPLE-PERSISTS", "expected_state": "REFUTED", "probe": "candidate", "fixture": "counterexample_persists", "semantic_edge": "counterexample:reject->reject", "depends_on": ["CAN-06-INCOMPLETE-EVIDENCE"], "reason": "original_counterexample_survives"},
+    {"ordinal": 8, "id": "CAN-08-GUARDRAIL-REGRESSION", "expected_state": "REFUTED", "probe": "guardrail", "fixture": "guardrail_regresses", "semantic_edge": "guardrail:negative->accept", "depends_on": ["CAN-07-COUNTEREXAMPLE-PERSISTS"], "reason": "fixed_guardrail_regresses"},
+    {"ordinal": 9, "id": "CAN-09-AUTHORITY-OVERREACH", "expected_state": "REFUTED", "probe": "authority", "fixture": "authority_overreach", "semantic_edge": "authority:zero->write", "depends_on": ["CAN-08-GUARDRAIL-REGRESSION"], "reason": "candidate_requests_repository_write"}
+  ]
+}
