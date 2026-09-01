@@ -1,0 +1,78 @@
+name: Gooo bounded self-change CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validation:
+    name: Go 1.27 semantic candidate validation
+    runs-on: ubuntu-latest
+    env:
+      SUBJECT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SUBJECT_SHA }}
+          fetch-depth: 0
+      - uses: actions/setup-go@v6
+        with:
+          go-version: 1.27.0
+          cache: false
+      - name: Verify Go 1.27
+        run: test "$(go env GOVERSION)" = "go1.27.0"
+      - name: Verify formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          files=$(gofmt -l $(git ls-files '*.go'))
+          test -z "$files"
+      - name: Prepare evidence directories
+        run: |
+          echo "METRICS_DIR=$RUNNER_TEMP/gooo-bounded-self-change-metrics" >> "$GITHUB_ENV"
+          echo "CONFORMANCE_WORK_ROOT=$RUNNER_TEMP/gooo-bounded-self-change-conformance" >> "$GITHUB_ENV"
+          echo "INTEGRATION_WORK_ROOT=$RUNNER_TEMP/gooo-bounded-self-change-integration" >> "$GITHUB_ENV"
+          echo "EVIDENCE_DIR=$RUNNER_TEMP/gooo-bounded-self-change-evidence" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/gooo-bounded-self-change-metrics" "$RUNNER_TEMP/gooo-bounded-self-change-conformance" "$RUNNER_TEMP/gooo-bounded-self-change-integration" "$RUNNER_TEMP/gooo-bounded-self-change-evidence"
+      - name: Measure compile
+        run: bash scripts/measure-stage.sh compile "$METRICS_DIR/compile.json" go build -buildmode=archive -trimpath -o "$RUNNER_TEMP/gooo-bounded-self-change-internal.a" ./internal/compiler
+      - name: Measure build
+        run: bash scripts/measure-stage.sh build "$METRICS_DIR/build.json" go build -trimpath -o "$RUNNER_TEMP/gooo-bounded-self-change-bin" ./cmd/gooo-bounded-self-change-compiler
+      - name: Measure Go tests
+        shell: bash
+        run: bash scripts/measure-stage.sh test "$METRICS_DIR/test.json" bash -c 'set -o pipefail; go test -json ./... | tee "$RUNNER_TEMP/gooo-bounded-self-change-go-test-events.jsonl"'
+      - name: Measure fixed canonical conformance
+        shell: bash
+        run: CONFORMANCE_WORK_ROOT="$CONFORMANCE_WORK_ROOT" CONFORMANCE_COUNTS_OUT="$RUNNER_TEMP/gooo-bounded-self-change-conformance-counts.json" bash scripts/measure-stage.sh conformance "$METRICS_DIR/conformance.json" bash scripts/conformance.sh "$RUNNER_TEMP/gooo-bounded-self-change-bin"
+      - name: Measure caller-owned integration
+        shell: bash
+        run: INTEGRATION_WORK_ROOT="$INTEGRATION_WORK_ROOT" INTEGRATION_RESULT_OUT="$RUNNER_TEMP/gooo-bounded-self-change-integration-result.json" bash scripts/measure-stage.sh integration "$METRICS_DIR/integration.json" bash scripts/integration.sh "$RUNNER_TEMP/gooo-bounded-self-change-bin"
+      - name: Assemble machine evidence
+        run: bash scripts/assemble-ci-evidence.sh "$METRICS_DIR" "$RUNNER_TEMP/gooo-bounded-self-change-go-test-events.jsonl" "$RUNNER_TEMP/gooo-bounded-self-change-conformance-counts.json" "$RUNNER_TEMP/gooo-bounded-self-change-integration-result.json" "$CONFORMANCE_WORK_ROOT" "$EVIDENCE_DIR/ci-evidence.json"
+      - name: Verify complete measurement receipt
+        run: |
+          set -euo pipefail
+          jq -e '
+            .tests == {total:3,selected:3,executed:3,reused:0,failed:0,unknown:0} and
+            .conformance == {schema:"gooo/bounded-self-change/conformance/v1",total:9,selected:9,executed:9,reused:0,closed:3,unknown:3,refuted:3} and
+            .runtime_authority == {repository_writes:0,apply_authority:0,commit_authority:0,merge_authority:0,tag_authority:0,release_authority:0,local_test_executions:0,cross_project_required_gates:0} and
+            .local_authority == {test:0,build:0,vet:0,lint:0,format:0,check:0,conformance:0,integration:0} and
+            ([.stage_measurements | to_entries[] | .value.wall_ms] | all(. >= 0)) and
+            ([.stage_measurements | to_entries[] | .value.peak_rss_kib] | all(. >= 0)) and
+            .inventory.root_readme_excluded == true and
+            .inventory.go.files > 0 and .inventory.gooo.files > 0 and
+            .artifacts.generated_count > 0 and .artifacts.generated_bytes > 0
+          ' "$EVIDENCE_DIR/ci-evidence.json" >/dev/null
+      - name: Publish human decision dossier
+        run: cat "$EVIDENCE_DIR/evidence/human-report.md" >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload machine and human evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: gooo-bounded-self-change-evidence-${{ github.run_id }}
+          path: ${{ env.EVIDENCE_DIR }}
+          if-no-files-found: error

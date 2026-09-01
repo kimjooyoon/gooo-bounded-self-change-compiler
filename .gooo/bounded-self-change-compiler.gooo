@@ -1,0 +1,17 @@
+gooo bounded_self_change_meta v1
+semantic_owner owner=gooo
+rule name=positive_only predicate=input>0
+rule name=non_negative predicate=input>=0
+precedence order=REFUTED>UNKNOWN>CLOSED
+unknown_fields fields=stage,step,reason,unknown_class,next_operation,blocked_by
+
+# The denominator is fixed before implementation and is owned by this .gooo file.
+case ordinal=1 id=CAN-01-COUNTEREXAMPLE-RESOLVED expected=CLOSED probe=candidate fixture=counterexample_resolved edge=counterexample:reject->accept depends_on=- reason=original_counterexample_is_repaired
+case ordinal=2 id=CAN-02-NEGATIVE-GUARDRAIL expected=CLOSED probe=guardrail fixture=negative_guardrail_preserved edge=guardrail:negative->reject depends_on=CAN-01-COUNTEREXAMPLE-RESOLVED reason=fixed_negative_guardrail_is_preserved
+case ordinal=3 id=CAN-03-POSITIVE-PRESERVED expected=CLOSED probe=guardrail fixture=positive_preserved edge=guardrail:positive->accept depends_on=CAN-02-NEGATIVE-GUARDRAIL reason=unchanged_positive_behavior_is_preserved
+case ordinal=4 id=CAN-04-MISSING-COUNTEREXAMPLE expected=UNKNOWN probe=input fixture=missing_counterexample edge=input:missing->unknown depends_on=CAN-03-POSITIVE-PRESERVED reason=observed_counterexample_is_not_declared
+case ordinal=5 id=CAN-05-UNFIXED-EDIT-SURFACE expected=UNKNOWN probe=edit_surface fixture=unfixed_edit_surface edge=edit:unbounded->unknown depends_on=CAN-04-MISSING-COUNTEREXAMPLE reason=permitted_edit_surface_is_not_fixed
+case ordinal=6 id=CAN-06-INCOMPLETE-EVIDENCE expected=UNKNOWN probe=evidence fixture=incomplete_evidence edge=evidence:incomplete->unknown depends_on=CAN-05-UNFIXED-EDIT-SURFACE reason=required_provenance_is_incomplete
+case ordinal=7 id=CAN-07-COUNTEREXAMPLE-PERSISTS expected=REFUTED probe=candidate fixture=counterexample_persists edge=counterexample:reject->reject depends_on=CAN-06-INCOMPLETE-EVIDENCE reason=original_counterexample_survives
+case ordinal=8 id=CAN-08-GUARDRAIL-REGRESSION expected=REFUTED probe=guardrail fixture=guardrail_regresses edge=guardrail:negative->accept depends_on=CAN-07-COUNTEREXAMPLE-PERSISTS reason=fixed_guardrail_regresses
+case ordinal=9 id=CAN-09-AUTHORITY-OVERREACH expected=REFUTED probe=authority fixture=authority_overreach edge=authority:zero->write depends_on=CAN-08-GUARDRAIL-REGRESSION reason=candidate_requests_repository_write
