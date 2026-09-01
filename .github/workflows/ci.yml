@@ -34,6 +34,24 @@ jobs:
           printf '%s\n' "$files"
           for file in $files; do gofmt -d "$file"; done
           test -z "$files"
+      - name: Preserve remote formatter diagnostic
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/formatted-go/internal/compiler"
+          for file in internal/compiler/*.go; do
+            gofmt -w "$file"
+            cp "$file" "$RUNNER_TEMP/formatted-go/$file"
+          done
+          tar -czf "$RUNNER_TEMP/formatted-go.tar.gz" -C "$RUNNER_TEMP/formatted-go" internal/compiler
+      - name: Upload remote formatter diagnostic
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: remote-formatted-go-${{ github.run_id }}
+          path: ${{ runner.temp }}/formatted-go.tar.gz
+          if-no-files-found: error
       - name: Prepare evidence directories
         run: |
           echo "METRICS_DIR=$RUNNER_TEMP/gooo-bounded-self-change-metrics" >> "$GITHUB_ENV"
