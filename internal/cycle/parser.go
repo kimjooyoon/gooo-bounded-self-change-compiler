@@ -65,6 +65,12 @@ func ParseMeta(path string) (MetaDecl, error) {
 				return MetaDecl{}, fmt.Errorf("line %d: %w", line, parseErr)
 			}
 			meta.Cases = append(meta.Cases, canonical)
+		case "invariant":
+			invariant, parseErr := parseInvariant(values)
+			if parseErr != nil {
+				return MetaDecl{}, fmt.Errorf("line %d: %w", line, parseErr)
+			}
+			meta.Invariants = append(meta.Invariants, invariant)
 		case "tool":
 			tool, parseErr := parseTool(values)
 			if parseErr != nil {
@@ -255,7 +261,24 @@ func parseCase(values map[string]string) (CanonicalCase, error) {
 	if err != nil {
 		return CanonicalCase{}, err
 	}
-	return CanonicalCase{Ordinal: ordinal, ID: values["id"], ExpectedState: values["expected"], Probe: values["probe"], Fixture: values["fixture"], SemanticEdge: values["edge"], DependsOn: splitList(values["depends_on"]), Reason: values["reason"]}, nil
+	return CanonicalCase{Ordinal: ordinal, ID: values["id"], ExpectedState: values["expected"], Probe: values["probe"], Fixture: values["fixture"], SemanticEdge: values["edge"], DependsOn: splitList(values["depends_on"]), Reason: values["reason"], ProofChoice: values["proof_choice"], IndicatorClass: values["indicator_class"]}, nil
+}
+
+func parseInvariant(values map[string]string) (InvariantDecl, error) {
+	ordinal, err := integer(values, "ordinal")
+	if err != nil {
+		return InvariantDecl{}, err
+	}
+	return InvariantDecl{
+		Ordinal: ordinal,
+		ID: values["id"],
+		Activity: values["activity"],
+		Stage: values["stage"],
+		Step: values["step"],
+		ProofChoice: values["proof_choice"],
+		IndicatorClass: values["indicator_class"],
+		DependsOn: splitList(values["depends_on"]),
+	}, nil
 }
 
 func parseTool(values map[string]string) (ToolLock, error) {

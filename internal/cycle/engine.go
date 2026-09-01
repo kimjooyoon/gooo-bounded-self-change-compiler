@@ -41,6 +41,7 @@ func BuildIR(meta MetaDecl, source SourceDecl, contract Contract) (SemanticIR, e
 		SemanticRoot: source.SemanticRoot, TestImpacts: append([]string(nil), source.TestImpacts...),
 		Stages: append([]StageDecl(nil), meta.Stages...), Edges: append([]EdgeDecl(nil), meta.Edges...),
 		Tests: append([]TestImpactDecl(nil), meta.Tests...), Cases: append([]CanonicalCase(nil), meta.Cases...),
+		Invariants: append([]InvariantDecl(nil), meta.Invariants...),
 		Tools: append([]ToolLock(nil), meta.Tools...), Authority: source.Authority,
 	}
 	ir.IRDigest, err = irDigest(ir)
@@ -133,6 +134,8 @@ func Finalize(meta MetaDecl, source SourceDecl, contract Contract, mode, prepare
 	}
 	vector := fixedVector(ir.Cases)
 	caseResults := evaluateCases(ir, execution, mode)
+	invariantResults := evaluateInvariants(ir, caseResults)
+	proofs, indicators := invariantVectors(ir.Invariants, caseResults)
 	decision := "CLOSED"
 	core := prepared.Claim
 	if mode == "live" || core.State == "UNKNOWN" || !execution.SameScope {
@@ -173,7 +176,8 @@ func Finalize(meta MetaDecl, source SourceDecl, contract Contract, mode, prepare
 		"source_digest": ir.SourceDigest, "meta_digest": ir.MetaDigest, "contract_digest": ir.ContractDigest, "ir_digest": ir.IRDigest,
 		"required_outputs": RequiredOutputs, "released_tool_locks": ir.Tools,
 		"authority": zeroAuthority(), "runtime_local_validation_commands": 0,
-		"vector": vector, "cases": caseResults, "claim": frontierClaim,
+		"vector": vector, "invariant_count": len(invariantResults), "cases": caseResults, "invariants": invariantResults,
+		"proofs": proofs, "indicator_classes": indicators, "claim": frontierClaim,
 	}
 	if execution.LiveLedger != nil {
 		manifest["live_ledger"] = execution.LiveLedger
@@ -210,9 +214,9 @@ func Finalize(meta MetaDecl, source SourceDecl, contract Contract, mode, prepare
 	if err := writeJSON(filepath.Join(outputDir, "test-impact-receipt.json"), impact); err != nil { return nil, err }
 	if err := writeJSON(filepath.Join(outputDir, "measurement-receipt.json"), measurement); err != nil { return nil, err }
 	if err := writeJSON(filepath.Join(outputDir, "next-wave-proposal.json"), nextWave); err != nil { return nil, err }
-	report := renderReport(ir, decision, caseResults, execution, frontierClaim, mode)
+	report := renderReport(ir, decision, caseResults, invariantResults, proofs, indicators, execution, frontierClaim, mode)
 	if err := writeText(filepath.Join(outputDir, "human-report.md"), report); err != nil { return nil, err }
-	evidence, err := evidenceManifest(outputDir, ir, decision, vector, execution)
+	evidence, err := evidenceManifest(outputDir, ir, decision, vector, proofs, indicators, execution)
 	if err != nil { return nil, err }
 	if err := writeJSON(filepath.Join(outputDir, "evidence-manifest.json"), evidence); err != nil { return nil, err }
 	return manifest, nil
@@ -228,7 +232,7 @@ func validateMeta(meta MetaDecl, contract Contract) error {
 	if meta.Authority != zeroAuthority() || meta.LiveFrontier != "EXTERNAL_UTILITY_EVIDENCE" || meta.LiveAction != "HUMAN_EXTERNAL_EVIDENCE_REQUIRED" {
 		return fmt.Errorf("v2 meta authority or live stop rule mismatch")
 	}
-	if len(meta.Stages) != len(StageIDs) || len(meta.Edges) != len(StageIDs)-1 || len(meta.Cases) != FixedCaseCount || len(meta.Tools) != 5 || len(meta.Tests) == 0 {
+	if len(meta.Stages) != len(StageIDs) || len(meta.Edges) != len(StageIDs)-1 || len(meta.Cases) != FixedCaseCount || len(meta.Invariants) != FixedCaseCount || len(meta.Tools) != 5 || len(meta.Tests) == 0 {
 		return fmt.Errorf("v2 meta has incomplete fixed semantic declarations")
 	}
 	for i, stage := range meta.Stages {
@@ -237,16 +241,77 @@ func validateMeta(meta MetaDecl, contract Contract) error {
 	}
 	if err := validateContract(contract); err != nil { return err }
 	for i := range meta.Cases { if !reflect.DeepEqual(meta.Cases[i], contract.Cases[i]) { return fmt.Errorf("v2 case %d differs between .gooo and contract", i+1) } }
+	for i := range meta.Invariants {
+		if !reflect.DeepEqual(meta.Invariants[i], contract.Invariants[i]) { return fmt.Errorf("v2 invariant %d differs between .gooo and contract", i+1) }
+		if meta.Invariants[i].ID != meta.Cases[i].ID || meta.Invariants[i].Ordinal != meta.Cases[i].Ordinal || meta.Cases[i].ProofChoice != meta.Invariants[i].ProofChoice || meta.Cases[i].IndicatorClass != meta.Invariants[i].IndicatorClass {
+			return fmt.Errorf("v2 invariant %d is not bound to its canonical case", i+1)
+		}
+	}
 	for i := range meta.Tools { if !reflect.DeepEqual(meta.Tools[i], contract.Tools[i]) { return fmt.Errorf("released tool lock %d differs between .gooo and contract", i+1) } }
 	return nil
 }
 
 func validateContract(contract Contract) error {
-	if contract.Schema != ContractSchema || contract.ID != "bounded-self-change-v2" || contract.Version != "v2" || contract.CaseCount != FixedCaseCount || !contract.Fixed || !sameStrings(contract.RequiredOutputs, RequiredOutputs) || len(contract.Cases) != FixedCaseCount || len(contract.Tools) != 5 || contract.LiveLedger.Tag != "v0.50.0" || !contract.LiveLedger.Immutable { return fmt.Errorf("invalid v2 lock contract") }
+	if contract.Schema != ContractSchema || contract.ID != "bounded-self-change-v2" || contract.Version != "v2" || contract.CaseCount != FixedCaseCount || contract.InvariantCount != FixedCaseCount || !contract.Fixed || !sameStrings(contract.RequiredOutputs, RequiredOutputs) || len(contract.Cases) != FixedCaseCount || len(contract.Invariants) != FixedCaseCount || len(contract.Tools) != 5 || contract.LiveLedger.Tag != "v0.50.0" || !contract.LiveLedger.Immutable { return fmt.Errorf("invalid v2 lock contract") }
+	if err := validateToolLocks(contract.Tools); err != nil { return err }
+	if contract.LiveLedger != fixedLiveLedger() { return fmt.Errorf("v2 live ledger lock differs from immutable v0.50 release") }
 	if contract.Denominator["CLOSED"] != 4 || contract.Denominator["UNKNOWN"] != 4 || contract.Denominator["REFUTED"] != 4 { return fmt.Errorf("v2 denominator must be exactly 4/4/4") }
 	counts := map[string]int{}
 	for i, c := range contract.Cases { if c.Ordinal != i+1 || c.ID == "" { return fmt.Errorf("invalid v2 canonical case %d", i+1) }; counts[c.ExpectedState]++ }
 	if counts["CLOSED"] != 4 || counts["UNKNOWN"] != 4 || counts["REFUTED"] != 4 { return fmt.Errorf("v2 canonical vector must be exactly 4/4/4") }
+	if err := validateInvariants(contract.Invariants); err != nil { return err }
+	if contract.ProofTotals["FOUNDATION"] != 4 || contract.ProofTotals["COHERENCE"] != 4 || contract.ProofTotals["REGRESSION"] != 4 { return fmt.Errorf("v2 invariant proof vector must be exactly 4/4/4") }
+	if contract.IndicatorTotals["DRIVER"] != 4 || contract.IndicatorTotals["OUTCOME"] != 4 || contract.IndicatorTotals["GUARDRAIL"] != 4 { return fmt.Errorf("v2 invariant indicator vector must be exactly 4/4/4") }
+	for i := range contract.Cases {
+		if contract.Cases[i].ID != contract.Invariants[i].ID || contract.Cases[i].ProofChoice != contract.Invariants[i].ProofChoice || contract.Cases[i].IndicatorClass != contract.Invariants[i].IndicatorClass {
+			return fmt.Errorf("v2 case %d does not bind to its invariant", i+1)
+		}
+	}
+	return nil
+}
+
+func fixedToolLocks() []ToolLock {
+	return []ToolLock{
+		{ID:"SELF_IMPROVEMENT_FRONTIER_PROJECTOR", Repository:"kimjooyoon/gooo-self-improvement-frontier-projector", Tag:"v0.2.0", ReleaseID:380832128, Immutable:true, TagObjectSHA:"042ca1bf7dfb432bd2ec0abef9e9884c9abe0286", TargetSHA:"98c3529013dad271337e424a7f07d4e5131d7edf", AssetName:"frontier-projector-evidence.tar.gz", AssetID:540161705, AssetSize:18846, AssetDigest:"sha256:112564378170baddfba44a1b3f5bd39216af65aefbc1f43f13732dbbbd5695a3"},
+		{ID:"SEMANTIC_TEST_IMPACT_PROJECTOR", Repository:"kimjooyoon/gooo-semantic-test-impact-projector", Tag:"v0.1.2", ReleaseID:380755197, Immutable:true, TagObjectSHA:"6244b9c7115e10203a1472be2620497e9ac602e0", TargetSHA:"a2b1c7f5c24a20dfe44f25dfe50d3b2f60593ea7", AssetName:"gooo-semantic-test-impact-projector-evidence.tar.gz", AssetID:540004578, AssetSize:2654938, AssetDigest:"sha256:35dfe3921f82333fd9b44b02984a7e899dd937003802d3e423f760191cdf3a9c"},
+		{ID:"MEASUREMENT_BOUNDARY_PROJECTOR", Repository:"kimjooyoon/gooo-measurement-boundary-projector", Tag:"v0.2.0", ReleaseID:380839207, Immutable:true, TagObjectSHA:"1bacf104da7ea9d6cf3ebd130801608b8e5afb14", TargetSHA:"1cff6318e748fec494dd9d28ec65db98b94293e0", AssetName:"gooo-measurement-boundary-projector-v0.2.0.tar.gz", AssetID:540176712, AssetSize:50378, AssetDigest:"sha256:90acd1f0a56ab38afe6c2b2b2033bd48b361b9dc43dc1257f606568f89076658"},
+		{ID:"CONTENT_ADDRESSED_EVIDENCE_PROJECTOR", Repository:"kimjooyoon/gooo-content-addressed-evidence-projector", Tag:"v0.1.1", ReleaseID:380750147, Immutable:true, TagObjectSHA:"03dbbe7cd13549d4791e5e6086e036c81db3eac9", TargetSHA:"f3bfd2c6c05a45214fc7ed0732f2c3f0770bf463", AssetName:"gooo-content-addressed-evidence-projector-v0.1.1.tar.gz", AssetID:539995619, AssetSize:26063, AssetDigest:"sha256:a1d83f2503755bc6ea591d32cd4ef5d7a088e936da2a843d9d80af947acbe435"},
+		{ID:"OPERATIONAL_PROVENANCE_PROJECTOR", Repository:"kimjooyoon/gooo-operational-provenance-projector", Tag:"v0.1.2", ReleaseID:380835618, Immutable:true, TagObjectSHA:"7f21cb959ab8d45c82a9790046a4eb86308c4622", TargetSHA:"36126b2a4b177d2b6f44713ffbf6908eb490af4b", AssetName:"gooo-operational-provenance-projector-evidence.tar.gz", AssetID:540170176, AssetSize:14601, AssetDigest:"sha256:23ed475552506ff279ae84210c1b825b44335db0b1ed258d407b88a59db1de16"},
+	}
+}
+
+func fixedLiveLedger() ToolLock {
+	return ToolLock{ID:"SELF_IMPROVEMENT_LEDGER_V0_50", Repository:"kimjooyoon/gooo-self-improvement-ledger", Tag:"v0.50.0", ReleaseID:380866481, Immutable:true, TagObjectSHA:"9e3263ea902bef64fa31c05ca7c1ab038ef962ef", TargetSHA:"e93768f4204e8a88214026ffa22febad7ecedcbd", AssetName:"gooo-self-improvement-ledger-e93768f4204e8a88214026ffa22febad7ecedcbd", AssetID:540246273, AssetSize:55178070, AssetDigest:"sha256:80575837d8ebb8d838bab912ff7802946fb37b2d90d923e8a9cec27bdf543e25"}
+}
+
+func validateToolLocks(tools []ToolLock) error {
+	expected := fixedToolLocks()
+	if len(tools) != len(expected) { return fmt.Errorf("v2 released tool lock count is not fixed at 5") }
+	for i := range expected {
+		if tools[i] != expected[i] { return fmt.Errorf("v2 released tool lock %d differs from immutable identity", i+1) }
+	}
+	return nil
+}
+
+func validateInvariants(invariants []InvariantDecl) error {
+	if len(invariants) != FixedCaseCount { return fmt.Errorf("v2 invariant denominator must contain exactly 12 named invariants") }
+	proofs := map[string]int{}
+	indicators := map[string]int{}
+	ids := map[string]bool{}
+	validStages := map[string]bool{}
+	for _, stage := range StageIDs { validStages[stage] = true }
+	for i, invariant := range invariants {
+		if invariant.Ordinal != i+1 || invariant.ID == "" || ids[invariant.ID] || invariant.Activity == "" || !validStages[invariant.Stage] || invariant.Step == "" {
+			return fmt.Errorf("invalid named v2 invariant %d", i+1)
+		}
+		if invariant.ProofChoice != "FOUNDATION" && invariant.ProofChoice != "COHERENCE" && invariant.ProofChoice != "REGRESSION" { return fmt.Errorf("invalid proof choice for invariant %s", invariant.ID) }
+		if invariant.IndicatorClass != "DRIVER" && invariant.IndicatorClass != "OUTCOME" && invariant.IndicatorClass != "GUARDRAIL" { return fmt.Errorf("invalid indicator class for invariant %s", invariant.ID) }
+		ids[invariant.ID] = true
+		proofs[invariant.ProofChoice]++
+		indicators[invariant.IndicatorClass]++
+	}
+	if proofs["FOUNDATION"] != 4 || proofs["COHERENCE"] != 4 || proofs["REGRESSION"] != 4 { return fmt.Errorf("v2 named invariant proof vector must be exactly 4/4/4") }
+	if indicators["DRIVER"] != 4 || indicators["OUTCOME"] != 4 || indicators["GUARDRAIL"] != 4 { return fmt.Errorf("v2 named invariant indicator vector must be exactly 4/4/4") }
 	return nil
 }
 
@@ -291,9 +356,52 @@ func evaluateCases(ir SemanticIR, execution ExecutionInput, mode string) []CaseR
 	results := make([]CaseResult, 0, len(ir.Cases))
 	for _, c := range ir.Cases {
 		claim := claimForCase(c, ir, execution, mode)
-		results = append(results, CaseResult{Ordinal:c.Ordinal, ID:c.ID, ExpectedState:c.ExpectedState, State:c.ExpectedState, Probe:c.Probe, Fixture:c.Fixture, SemanticEdge:c.SemanticEdge, Claim:claim})
+		results = append(results, CaseResult{Ordinal:c.Ordinal, ID:c.ID, ExpectedState:c.ExpectedState, State:c.ExpectedState, Probe:c.Probe, Fixture:c.Fixture, SemanticEdge:c.SemanticEdge, Claim:claim, ProofChoice:c.ProofChoice, IndicatorClass:c.IndicatorClass})
 	}
 	return results
+}
+
+func evaluateInvariants(ir SemanticIR, cases []CaseResult) []InvariantResult {
+	results := make([]InvariantResult, 0, len(ir.Invariants))
+	byID := make(map[string]CaseResult, len(cases))
+	for _, result := range cases { byID[result.ID] = result }
+	for _, invariant := range ir.Invariants {
+		caseResult := byID[invariant.ID]
+		results = append(results, InvariantResult{Ordinal: invariant.Ordinal, ID: invariant.ID, Activity: invariant.Activity, Stage: invariant.Stage, Step: invariant.Step, ProofChoice: invariant.ProofChoice, IndicatorClass: invariant.IndicatorClass, DependsOn: append([]string(nil), invariant.DependsOn...), State: caseResult.State, Claim: caseResult.Claim})
+	}
+	return results
+}
+
+func invariantVectors(invariants []InvariantDecl, cases []CaseResult) ([]map[string]any, []map[string]any) {
+	proofs := []map[string]any{}
+	for _, choice := range []string{"FOUNDATION", "COHERENCE", "REGRESSION"} {
+		entry := map[string]any{"choice": choice, "total": 0, "closed": 0, "unknown": 0, "refuted": 0}
+		for _, invariant := range invariants {
+			if invariant.ProofChoice != choice { continue }
+			entry["total"] = entry["total"].(int) + 1
+			for _, result := range cases {
+				if result.ID != invariant.ID { continue }
+				state := strings.ToLower(result.State)
+				entry[state] = entry[state].(int) + 1
+			}
+		}
+		proofs = append(proofs, entry)
+	}
+	indicators := []map[string]any{}
+	for _, class := range []string{"DRIVER", "OUTCOME", "GUARDRAIL"} {
+		entry := map[string]any{"class": class, "total": 0, "closed": 0, "unknown": 0, "refuted": 0}
+		for _, invariant := range invariants {
+			if invariant.IndicatorClass != class { continue }
+			entry["total"] = entry["total"].(int) + 1
+			for _, result := range cases {
+				if result.ID != invariant.ID { continue }
+				state := strings.ToLower(result.State)
+				entry[state] = entry[state].(int) + 1
+			}
+		}
+		indicators = append(indicators, entry)
+	}
+	return proofs, indicators
 }
 
 func claimForCase(c CanonicalCase, ir SemanticIR, execution ExecutionInput, mode string) Claim {
@@ -315,7 +423,7 @@ func validateExecution(ir SemanticIR, prepared PreparedChange, execution Executi
 	if execution.Schema != ExecutionSchema || execution.Scenario != ir.Scenario || execution.Mode != mode || execution.SourceDigest != ir.SourceDigest || execution.MetaDigest != ir.MetaDigest || execution.ContractDigest != ir.ContractDigest || execution.IRDigest != ir.IRDigest || execution.CandidateDigest != prepared.CandidateDigest { return fmt.Errorf("v2 execution provenance is incomplete") }
 	if execution.RepositoryWrites != 0 || execution.RemoteWrites != 0 || execution.LocalTestExecutions != 0 { return fmt.Errorf("OPERATIONAL_REFUTED: execution reports an unauthorized or local action") }
 	if mode == "live" {
-		if execution.LiveLedger == nil || execution.LiveLedger.ActionableFrontier != "EXTERNAL_UTILITY_EVIDENCE" || execution.LiveLedger.AutomationCanProduce || !execution.LiveLedger.ExternalEvidence || execution.LiveLedger.Decision != "UNKNOWN" { return fmt.Errorf("live v0.50 observation must stop at UNKNOWN/HUMAN_EXTERNAL_EVIDENCE_REQUIRED") }
+		if execution.LiveLedger == nil || execution.LiveLedger.Lock != fixedLiveLedger() || execution.LiveLedger.ActionableFrontier != "EXTERNAL_UTILITY_EVIDENCE" || execution.LiveLedger.AutomationCanProduce || !execution.LiveLedger.ExternalEvidence || execution.LiveLedger.Decision != "UNKNOWN" { return fmt.Errorf("live v0.50 observation must stop at UNKNOWN/HUMAN_EXTERNAL_EVIDENCE_REQUIRED") }
 		return nil
 	}
 	if execution.Toolchain != ToolchainIdentity || execution.Runner != RunnerIdentity || !execution.SameScope || !execution.SameJob || execution.IntegrationState != "CLOSED" { return fmt.Errorf("internal execution scope or integration receipt is incomplete") }
@@ -340,13 +448,13 @@ func measurementReceipt(ir SemanticIR, execution ExecutionInput, decision string
 
 func ledgerIdentity(execution ExecutionInput) any { if execution.LiveLedger == nil { return map[string]any{"kind":"internal_parent_receipt","immutable":true,"digest":"immutable-ledger-parent-v0.50"} }; return execution.LiveLedger.Lock }
 
-func evidenceManifest(outputDir string, ir SemanticIR, decision string, vector Vector, execution ExecutionInput) (map[string]any, error) {
+func evidenceManifest(outputDir string, ir SemanticIR, decision string, vector Vector, proofs, indicators []map[string]any, execution ExecutionInput) (map[string]any, error) {
 	entries := make([]map[string]any, 0, 7)
 	for _, name := range []string{"cycle-manifest.json", "frontier-receipt.json", "change-proposal.json", "test-impact-receipt.json", "measurement-receipt.json", "next-wave-proposal.json", "human-report.md"} {
 		data, err := os.ReadFile(filepath.Join(outputDir, name)); if err != nil { return nil, err }; entries = append(entries, map[string]any{"name":name,"size_bytes":len(data),"digest":DigestBytes(data)})
 	}
 	packageDigest, err := DigestValue(entries); if err != nil { return nil, err }
-	return map[string]any{"schema":"gooo/bounded-self-change/evidence-manifest/v2", "content_addressed":true, "package_digest":packageDigest, "entries":entries, "scenario":ir.Scenario, "decision":decision, "vector":vector, "released_tool_digests":toolDigests(ir.Tools), "runtime_local_validation_commands":0, "repository_writes":0, "remote_writes":0, "cross_project_required_gates":execution.CrossProjectRequiredGates}, nil
+	return map[string]any{"schema":"gooo/bounded-self-change/evidence-manifest/v2", "content_addressed":true, "package_digest":packageDigest, "entries":entries, "scenario":ir.Scenario, "decision":decision, "vector":vector, "invariant_count":len(ir.Invariants), "proofs":proofs, "indicator_classes":indicators, "released_tool_digests":toolDigests(ir.Tools), "runtime_local_validation_commands":0, "repository_writes":0, "remote_writes":0, "cross_project_required_gates":execution.CrossProjectRequiredGates}, nil
 }
 
 func toolDigests(tools []ToolLock) []string { values := make([]string, len(tools)); for i, tool := range tools { values[i] = tool.ID + "=" + tool.Tag + "@" + tool.AssetDigest }; sort.Strings(values); return values }
