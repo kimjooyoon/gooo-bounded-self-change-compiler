@@ -1,0 +1,3 @@
+# CI writes all generated artifacts under runner-owned temporary directories.
+*.test
+*.out
