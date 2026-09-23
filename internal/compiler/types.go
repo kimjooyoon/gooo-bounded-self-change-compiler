@@ -1,5 +1,7 @@
 package compiler
 
+import "strings"
+
 const (
 	SourceSchema       = "gooo/bounded-self-change/source/v1"
 	MetaSchema         = "gooo/bounded-self-change/meta/v1"
@@ -284,6 +286,13 @@ type Report struct {
 }
 
 func (c Claim) HasUnknownTuple() bool {
-	return c.State == "UNKNOWN" && c.Stage != "" && c.Step != "" && c.Reason != "" &&
-		c.UnknownClass != "" && c.NextOperation != "" && c.BlockedBy != nil
+	if c.State != "UNKNOWN" || c.Stage == "" || c.Step == "" || c.Reason == "" || c.UnknownClass == "" || c.NextOperation == "" || len(c.BlockedBy) == 0 {
+		return false
+	}
+	for _, blocker := range c.BlockedBy {
+		if strings.TrimSpace(blocker) == "" {
+			return false
+		}
+	}
+	return true
 }

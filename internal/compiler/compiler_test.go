@@ -14,6 +14,17 @@ func TestResolutionPrecedenceFailsClosed(t *testing.T) {
 	}
 }
 
+func TestUnknownTupleRejectsEmptyBlockers(t *testing.T) {
+	base := Claim{State: "UNKNOWN", Stage: "STAGE", Step: "STEP", Reason: "REASON", UnknownClass: "CLASS", NextOperation: "NEXT"}
+	for _, blockers := range [][]string{nil, {}, {""}, {"  "}} {
+		claim := base
+		claim.BlockedBy = blockers
+		if claim.HasUnknownTuple() {
+			t.Fatalf("UNKNOWN tuple accepted empty blockers: %#v", blockers)
+		}
+	}
+}
+
 func TestGraphHasBoundedDecisionPath(t *testing.T) {
 	ir := SemanticIR{Graph: SemanticGraph{Schema: GraphSchema}}
 	ir.Graph = buildGraph(ir)
