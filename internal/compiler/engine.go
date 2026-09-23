@@ -368,6 +368,41 @@ func findRepoRoot() string {
 }
 
 func isWithin(root, candidate string) bool {
+	root, err := resolveExistingPath(root)
+	if err != nil {
+		return false
+	}
+	candidate, err = resolveExistingPath(candidate)
+	if err != nil {
+		return false
+	}
 	rel, err := filepath.Rel(root, candidate)
 	return err == nil && (rel == "." || (rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))))
+}
+
+func resolveExistingPath(path string) (string, error) {
+	absolute, err := filepath.Abs(path)
+	if err != nil {
+		return "", err
+	}
+	current := absolute
+	suffix := []string{}
+	for {
+		resolved, err := filepath.EvalSymlinks(current)
+		if err == nil {
+			for index := len(suffix) - 1; index >= 0; index-- {
+				resolved = filepath.Join(resolved, suffix[index])
+			}
+			return resolved, nil
+		}
+		if !os.IsNotExist(err) {
+			return "", err
+		}
+		parent := filepath.Dir(current)
+		if parent == current {
+			return "", err
+		}
+		suffix = append(suffix, filepath.Base(current))
+		current = parent
+	}
 }
