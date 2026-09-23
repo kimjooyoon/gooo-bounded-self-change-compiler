@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 )
 
@@ -139,6 +140,9 @@ func ValidateIR(ir SemanticIR) error {
 	}
 	if ir.BaselineRule != "positive_only" || ir.CandidateRule != "non_negative" || len(ir.Cases) != FixedCaseCount || ir.Graph.Schema != GraphSchema {
 		return fmt.Errorf("semantic IR is not fixed to the bounded loop")
+	}
+	if !reflect.DeepEqual(ir.Graph, buildGraph(ir)) {
+		return fmt.Errorf("semantic IR graph does not match the fixed bounded loop")
 	}
 	expected, err := unsignedIRDigest(ir)
 	if err != nil {

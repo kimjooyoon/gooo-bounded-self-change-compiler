@@ -57,3 +57,26 @@ func TestValidateMetaRejectsMutatedCanonicalCase(t *testing.T) {
 		t.Fatal("mutated canonical case was accepted")
 	}
 }
+
+func TestValidateIRRejectsRehashedGraphMutation(t *testing.T) {
+	ir := SemanticIR{
+		Schema: IRSchema, Version: "v1", Scenario: "graph-integrity", SourceDigest: "source", MetaDigest: "meta", ContractDigest: "contract",
+		BaselineRule: "positive_only", CandidateRule: "non_negative", Cases: make([]CanonicalCase, FixedCaseCount),
+	}
+	ir.Graph = buildGraph(ir)
+	digest, err := unsignedIRDigest(ir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ir.Graph.Edges[0].Relation = "tampered"
+	ir.IRDigest, err = unsignedIRDigest(ir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if digest == ir.IRDigest {
+		t.Fatal("graph mutation did not change IR digest")
+	}
+	if err := ValidateIR(ir); err == nil {
+		t.Fatal("rehashed graph mutation was accepted")
+	}
+}
