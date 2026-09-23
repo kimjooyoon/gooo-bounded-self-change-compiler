@@ -157,12 +157,40 @@ func ContractDigest(contract Contract) (string, error) {
 }
 
 func declarationFields(line string) []string {
-	line = strings.TrimSpace(strings.SplitN(line, "#", 2)[0])
-	line = strings.TrimSpace(strings.SplitN(line, "//", 2)[0])
+	line = stripComments(line)
 	if line == "" {
 		return nil
 	}
 	return strings.Fields(line)
+}
+
+func stripComments(line string) string {
+	quoted := false
+	escaped := false
+	for index := 0; index < len(line); index++ {
+		if escaped {
+			escaped = false
+			continue
+		}
+		if quoted && line[index] == '\\' {
+			escaped = true
+			continue
+		}
+		if line[index] == '"' {
+			quoted = !quoted
+			continue
+		}
+		if quoted {
+			continue
+		}
+		if line[index] == '#' {
+			return strings.TrimSpace(line[:index])
+		}
+		if line[index] == '/' && index+1 < len(line) && line[index+1] == '/' {
+			return strings.TrimSpace(line[:index])
+		}
+	}
+	return strings.TrimSpace(line)
 }
 
 func parseKeyValues(fields []string) (map[string]string, error) {

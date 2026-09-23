@@ -31,3 +31,10 @@ func TestExactPairClosesImprovement(t *testing.T) {
 		t.Fatalf("unexpected improvement claim: %#v", claim)
 	}
 }
+
+func TestDeclarationFieldsPreserveQuotedCommentMarkers(t *testing.T) {
+	fields := declarationFields(`evidence id=sample description="hash#and//markers" # actual comment`)
+	if len(fields) != 3 || fields[2] != `description="hash#and//markers"` {
+		t.Fatalf("quoted comment markers were altered: %#v", fields)
+	}
+}
