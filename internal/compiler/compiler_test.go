@@ -31,3 +31,9 @@ func TestExactPairClosesImprovement(t *testing.T) {
 		t.Fatalf("unexpected improvement claim: %#v", claim)
 	}
 }
+
+func TestParseKeyValuesRejectsDuplicateKeys(t *testing.T) {
+	if _, err := parseKeyValues([]string{"id=first", "id=second"}); err == nil {
+		t.Fatal("duplicate declaration key was accepted")
+	}
+}
