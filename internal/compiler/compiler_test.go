@@ -37,3 +37,23 @@ func TestParseKeyValuesRejectsDuplicateKeys(t *testing.T) {
 		t.Fatal("duplicate declaration key was accepted")
 	}
 }
+
+func TestValidateMetaRejectsMutatedCanonicalCase(t *testing.T) {
+	cases := fixedCanonicalCases()
+	meta := MetaDecl{
+		Schema: MetaSchema, Version: "v1", Owner: "gooo",
+		Rules: []RuleSpec{{Name: "positive_only", Predicate: "input>0"}, {Name: "non_negative", Predicate: "input>=0"}},
+		Precedence: []string{"REFUTED", "UNKNOWN", "CLOSED"},
+		UnknownFields: []string{"stage", "step", "reason", "unknown_class", "next_operation", "blocked_by"},
+		Cases: append([]CanonicalCase(nil), cases...),
+	}
+	contract := Contract{
+		Schema: ContractSchema, ID: "bounded-self-change-v1", Version: "v1", CaseCount: FixedCaseCount, Fixed: true,
+		Cases: append([]CanonicalCase(nil), cases...),
+	}
+	contract.Cases[0].Fixture = "counterexample_persists"
+	meta.Cases[0] = contract.Cases[0]
+	if err := ValidateMeta(meta, contract); err == nil {
+		t.Fatal("mutated canonical case was accepted")
+	}
+}

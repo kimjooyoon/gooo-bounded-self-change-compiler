@@ -23,12 +23,30 @@ func ValidateMeta(meta MetaDecl, contract Contract) error {
 	if len(meta.Cases) != FixedCaseCount || len(contract.Cases) != FixedCaseCount {
 		return fmt.Errorf("canonical denominator must contain exactly %d cases", FixedCaseCount)
 	}
+	expectedCases := fixedCanonicalCases()
 	for index := 0; index < FixedCaseCount; index++ {
+		if !sameCase(contract.Cases[index], expectedCases[index]) {
+			return fmt.Errorf("contract canonical case %d does not match the fixed contract", index+1)
+		}
 		if !sameCase(meta.Cases[index], contract.Cases[index]) || meta.Cases[index].Ordinal != index+1 {
 			return fmt.Errorf("canonical case %d does not match the fixed contract", index+1)
 		}
 	}
 	return nil
+}
+
+func fixedCanonicalCases() []CanonicalCase {
+	return []CanonicalCase{
+		{Ordinal: 1, ID: "CAN-01-COUNTEREXAMPLE-RESOLVED", ExpectedState: "CLOSED", Probe: "candidate", Fixture: "counterexample_resolved", SemanticEdge: "counterexample:reject->accept", DependsOn: []string{}, Reason: "original_counterexample_is_repaired"},
+		{Ordinal: 2, ID: "CAN-02-NEGATIVE-GUARDRAIL", ExpectedState: "CLOSED", Probe: "guardrail", Fixture: "negative_guardrail_preserved", SemanticEdge: "guardrail:negative->reject", DependsOn: []string{"CAN-01-COUNTEREXAMPLE-RESOLVED"}, Reason: "fixed_negative_guardrail_is_preserved"},
+		{Ordinal: 3, ID: "CAN-03-POSITIVE-PRESERVED", ExpectedState: "CLOSED", Probe: "guardrail", Fixture: "positive_preserved", SemanticEdge: "guardrail:positive->accept", DependsOn: []string{"CAN-02-NEGATIVE-GUARDRAIL"}, Reason: "unchanged_positive_behavior_is_preserved"},
+		{Ordinal: 4, ID: "CAN-04-MISSING-COUNTEREXAMPLE", ExpectedState: "UNKNOWN", Probe: "input", Fixture: "missing_counterexample", SemanticEdge: "input:missing->unknown", DependsOn: []string{"CAN-03-POSITIVE-PRESERVED"}, Reason: "observed_counterexample_is_not_declared"},
+		{Ordinal: 5, ID: "CAN-05-UNFIXED-EDIT-SURFACE", ExpectedState: "UNKNOWN", Probe: "edit_surface", Fixture: "unfixed_edit_surface", SemanticEdge: "edit:unbounded->unknown", DependsOn: []string{"CAN-04-MISSING-COUNTEREXAMPLE"}, Reason: "permitted_edit_surface_is_not_fixed"},
+		{Ordinal: 6, ID: "CAN-06-INCOMPLETE-EVIDENCE", ExpectedState: "UNKNOWN", Probe: "evidence", Fixture: "incomplete_evidence", SemanticEdge: "evidence:incomplete->unknown", DependsOn: []string{"CAN-05-UNFIXED-EDIT-SURFACE"}, Reason: "required_provenance_is_incomplete"},
+		{Ordinal: 7, ID: "CAN-07-COUNTEREXAMPLE-PERSISTS", ExpectedState: "REFUTED", Probe: "candidate", Fixture: "counterexample_persists", SemanticEdge: "counterexample:reject->reject", DependsOn: []string{"CAN-06-INCOMPLETE-EVIDENCE"}, Reason: "original_counterexample_survives"},
+		{Ordinal: 8, ID: "CAN-08-GUARDRAIL-REGRESSION", ExpectedState: "REFUTED", Probe: "guardrail", Fixture: "guardrail_regresses", SemanticEdge: "guardrail:negative->accept", DependsOn: []string{"CAN-07-COUNTEREXAMPLE-PERSISTS"}, Reason: "fixed_guardrail_regresses"},
+		{Ordinal: 9, ID: "CAN-09-AUTHORITY-OVERREACH", ExpectedState: "REFUTED", Probe: "authority", Fixture: "authority_overreach", SemanticEdge: "authority:zero->write", DependsOn: []string{"CAN-08-GUARDRAIL-REGRESSION"}, Reason: "candidate_requests_repository_write"},
+	}
 }
 
 func ValidateSource(source SourceDecl, contract Contract) error {
